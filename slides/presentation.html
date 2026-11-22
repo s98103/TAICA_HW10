@@ -1,0 +1,1446 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>張小孟的文獻簡報與筆記 — 前臂肌電解碼與上肢神經復健全景</title>
+  
+  <!-- KaTeX 數學公式排版引擎 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" 
+          onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+
+  <style>
+    /* 莫蘭迪灰階石墨與啞光磚紅 (Graphite & Muted Terracotta) 核心色彩定義 */
+    :root {
+      --bg-color: #F8F7F4;
+      --card-bg: #FFFFFF;
+      --card-border: #E2DFD6;
+      --text-main: #343840;
+      --text-muted: #6C727D;
+      --heading-color: #20242B;
+      
+      --accent-terracotta: #A85751;       /* 核心強調：啞光磚紅 */
+      --accent-terracotta-light: #F7EFEF; /* 淺磚紅 */
+      --accent-slate: #4A6B82;            /* 輔助：莫蘭迪灰藍 */
+      --accent-slate-light: #EDF3F7;
+      --accent-sage: #5A7052;             /* 輔助：鼠尾草綠 */
+      --accent-sage-light: #EFF4EE;
+      --accent-ochre: #B8834F;            /* 輔助：莫蘭迪陶土黃 */
+      --accent-ochre-light: #F9F3EC;
+      
+      --math-bg: #F4F1EA;
+      --notes-bg: #1E222A;
+      --notes-card: #282C36;
+      --notes-text: #E5E7EB;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+      --font-mono: "Fira Code", Consolas, Monaco, "Courier New", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      user-select: text;
+    }
+
+    /* 頂部進度指示條 */
+    #progress-bar-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: rgba(226, 223, 214, 0.6);
+      z-index: 1000;
+    }
+    #progress-bar {
+      height: 100%;
+      width: 8.33%;
+      background: var(--accent-terracotta);
+      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* 頂部資訊列 */
+    header.slide-header {
+      position: fixed;
+      top: 4px;
+      left: 0;
+      width: 100%;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      background: rgba(248, 247, 244, 0.94);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--card-border);
+      z-index: 900;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .badge-tag {
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 4px;
+      background: var(--accent-terracotta-light);
+      color: var(--accent-terracotta);
+      border: 1px solid rgba(168, 87, 81, 0.25);
+    }
+
+    .header-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .nav-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+    .nav-btn:hover {
+      background: var(--accent-terracotta-light);
+      border-color: var(--accent-terracotta);
+      color: var(--accent-terracotta);
+    }
+    .nav-btn.active {
+      background: var(--accent-terracotta);
+      color: #FFF;
+      border-color: var(--accent-terracotta);
+    }
+
+    /* 投影片主容器視窗 */
+    #slide-viewport {
+      position: relative;
+      width: 100vw;
+      height: calc(100vh - 56px - 50px);
+      margin-top: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .slide-page {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      padding: 24px 54px 36px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(16px);
+      transition: opacity 0.35s ease, transform 0.35s ease;
+      overflow-y: auto;
+    }
+
+    .slide-page.active {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+
+    /* 標題區域規範 */
+    .slide-heading-group {
+      margin-bottom: 16px;
+    }
+    .slide-title {
+      font-size: 2.25rem;
+      font-weight: 800;
+      color: var(--heading-color);
+      line-height: 1.25;
+      letter-spacing: -0.5px;
+    }
+    .slide-subtitle {
+      font-size: 1.12rem;
+      color: var(--text-muted);
+      margin-top: 5px;
+      line-height: 1.5;
+    }
+
+    /* 統計大數字看板 (Dashboard Banner) */
+    .dashboard-banner {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      margin-bottom: 18px;
+      width: 100%;
+    }
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 16px 22px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.02);
+      display: flex;
+      flex-direction: column;
+      border-left: 5px solid var(--accent-terracotta);
+    }
+    .stat-number {
+      font-size: 2.1rem;
+      font-weight: 800;
+      color: var(--accent-terracotta);
+      line-height: 1.1;
+      font-family: var(--font-mono);
+      margin-bottom: 4px;
+    }
+    .stat-label {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--heading-color);
+    }
+    .stat-desc {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+
+    /* 版面網格統一配置 */
+    .grid-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 22px;
+      width: 100%;
+    }
+    .grid-3col {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 20px;
+      width: 100%;
+    }
+
+    /* 卡片設計規範：統一純白底色，依色系嚴格綁定框線、圖示與列表圓點 */
+    .m-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 22px 26px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .m-card:hover {
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+    }
+
+    /* 磚紅色系 (Terracotta) */
+    .m-card.featured {
+      border-top: 5px solid var(--accent-terracotta);
+    }
+    .m-card.featured .card-title .icon-indicator {
+      background: var(--accent-terracotta);
+    }
+    .m-card.featured ul.bullet-list li::before {
+      color: var(--accent-terracotta);
+    }
+
+    /* 灰藍色系 (Slate) */
+    .m-card.slate {
+      border-top: 5px solid var(--accent-slate);
+    }
+    .m-card.slate .card-title .icon-indicator {
+      background: var(--accent-slate);
+    }
+    .m-card.slate ul.bullet-list li::before {
+      color: var(--accent-slate);
+    }
+
+    /* 鼠尾草綠色系 (Sage) */
+    .m-card.sage {
+      border-top: 5px solid var(--accent-sage);
+    }
+    .m-card.sage .card-title .icon-indicator {
+      background: var(--accent-sage);
+    }
+    .m-card.sage ul.bullet-list li::before {
+      color: var(--accent-sage);
+    }
+
+    /* 陶土黃色系 (Ochre) */
+    .m-card.ochre {
+      border-top: 5px solid var(--accent-ochre);
+    }
+    .m-card.ochre .card-title .icon-indicator {
+      background: var(--accent-ochre);
+    }
+    .m-card.ochre ul.bullet-list li::before {
+      color: var(--accent-ochre);
+    }
+
+    .card-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--heading-color);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card-title .icon-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    p.content-text {
+      font-size: 1.05rem;
+      line-height: 1.7;
+      color: var(--text-main);
+      margin-bottom: 12px;
+    }
+
+    ul.bullet-list {
+      list-style: none;
+      padding-left: 0;
+    }
+    ul.bullet-list li {
+      position: relative;
+      padding-left: 24px;
+      font-size: 1.05rem;
+      line-height: 1.75;
+      margin-bottom: 10px;
+      color: var(--text-main);
+    }
+    ul.bullet-list li::before {
+      content: "•";
+      position: absolute;
+      left: 6px;
+      font-weight: 900;
+      font-size: 1.3rem;
+      top: -2px;
+    }
+
+    /* 數學公式優雅展示框 */
+    .formula-box {
+      background: var(--math-bg);
+      border-left: 5px solid var(--accent-terracotta);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 14px 0;
+      text-align: center;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.03);
+    }
+    .formula-caption {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      margin-top: 8px;
+      font-style: italic;
+      text-align: left;
+      line-height: 1.5;
+    }
+
+    /* 數據比較表格 */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 0.95rem;
+    }
+    .data-table th, .data-table td {
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .data-table th {
+      background: var(--bg-color);
+      color: var(--heading-color);
+      font-weight: 700;
+    }
+    .data-table tr:hover {
+      background: rgba(247, 239, 239, 0.45);
+    }
+    .highlight-cell {
+      color: var(--accent-terracotta);
+      font-weight: 800;
+    }
+
+    /* 底部控制列與右下角按鈕群組 */
+    footer.slide-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      background: rgba(248, 247, 244, 0.96);
+      border-top: 1px solid var(--card-border);
+      font-size: 0.86rem;
+      color: var(--text-muted);
+      z-index: 900;
+    }
+
+    .footer-hints {
+      display: flex;
+      gap: 18px;
+      align-items: center;
+    }
+    .kbd-shortcut {
+      background: #EAE6DC;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-main);
+      border: 1px solid #D8D3C4;
+    }
+
+    /* 右下角控制按鈕群 */
+    .footer-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .icon-ctrl-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      width: 34px;
+      height: 34px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+    .icon-ctrl-btn:hover {
+      background: var(--accent-terracotta-light);
+      border-color: var(--accent-terracotta);
+      color: var(--accent-terracotta);
+      transform: translateY(-1px);
+    }
+    .slide-page-badge {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--heading-color);
+      padding: 0 10px;
+    }
+
+    /* 深度研讀筆記抽屜 (Study Notes Drawer) */
+    #notes-drawer {
+      position: fixed;
+      bottom: 50px;
+      left: 0;
+      width: 100%;
+      height: 58vh;
+      background: var(--notes-bg);
+      color: var(--notes-text);
+      border-top: 3px solid var(--accent-terracotta);
+      box-shadow: 0 -12px 36px rgba(0, 0, 0, 0.4);
+      transform: translateY(120%);
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+      z-index: 950;
+      display: flex;
+      flex-direction: column;
+    }
+    #notes-drawer.open {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .notes-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 32px;
+      background: rgba(0, 0, 0, 0.35);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .notes-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #FFF;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .notes-close-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #D1D5DB;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, color 0.2s;
+    }
+    .notes-close-btn:hover {
+      background: var(--accent-terracotta);
+      color: #FFF;
+      border-color: var(--accent-terracotta);
+    }
+
+    .notes-body {
+      padding: 22px 36px 36px;
+      overflow-y: auto;
+      font-size: 0.98rem;
+      line-height: 1.7;
+    }
+    .notes-card-section {
+      background: var(--notes-card);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-bottom: 16px;
+    }
+    .notes-card-section h4 {
+      color: #FFA59E;
+      font-size: 1.05rem;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .notes-card-section p, .notes-card-section li {
+      color: #D6D9E0;
+      font-size: 0.96rem;
+      line-height: 1.7;
+      margin-bottom: 8px;
+    }
+    .notes-card-section ul {
+      padding-left: 20px;
+    }
+    .wiki-tag {
+      display: inline-block;
+      background: rgba(168, 87, 81, 0.35);
+      color: #FFB3AD;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      margin-bottom: 12px;
+      font-family: var(--font-mono);
+      border: 1px solid rgba(168, 87, 81, 0.4);
+    }
+
+    /* 章節導覽 Modal */
+    #toc-modal {
+      position: fixed;
+      top: 60px;
+      right: 32px;
+      width: 320px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+      padding: 16px;
+      display: none;
+      z-index: 1001;
+    }
+    #toc-modal.open {
+      display: block;
+    }
+    .toc-title {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--heading-color);
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .toc-item {
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 0.88rem;
+      cursor: pointer;
+      color: var(--text-main);
+      transition: background 0.15s;
+      margin-bottom: 3px;
+    }
+    .toc-item:hover {
+      background: var(--accent-terracotta-light);
+      color: var(--accent-terracotta);
+    }
+    .toc-item.active {
+      background: var(--accent-terracotta);
+      color: #FFF;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 頂部進度條 -->
+  <div id="progress-bar-container">
+    <div id="progress-bar"></div>
+  </div>
+
+  <!-- 頂部資訊列 -->
+  <header class="slide-header">
+    <div class="header-left">
+      <span class="badge-tag">張小孟的文獻簡報</span>
+      <span class="header-title">前臂肌電解碼與智慧神經復健全景知識庫</span>
+    </div>
+    <div class="header-right">
+      <a class="nav-btn" href="../index.html" title="返回總覽首頁">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        首頁
+      </a>
+      <button class="nav-btn" id="btn-toc" onclick="toggleToc()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h7"/></svg>
+        章節導覽
+      </button>
+      <button class="nav-btn" id="btn-notes" onclick="toggleNotes()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        筆記模式 <span class="kbd-shortcut">N</span>
+      </button>
+      <button class="nav-btn" id="btn-fullscreen" onclick="toggleFullscreen()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+        全螢幕 <span class="kbd-shortcut">F</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- 目錄跳轉清單 (TOC Modal) -->
+  <div id="toc-modal">
+    <div class="toc-title">簡報章節索引 (12 頁)</div>
+    <div class="toc-item active" onclick="goToSlide(0)">01 封面：前臂肌電與神經復健全景</div>
+    <div class="toc-item" onclick="goToSlide(1)">02 核心問題：義肢臨床三大死穴</div>
+    <div class="toc-item" onclick="goToSlide(2)">03 論文 1：Kumar 2013 單通道體導電突破</div>
+    <div class="toc-item" onclick="goToSlide(3)">04 論文 2：Yao 2020 外部振動與肌電負載</div>
+    <div class="toc-item" onclick="goToSlide(4)">05 論文 3：Fukunaga 2023 FDS 選擇性活化</div>
+    <div class="toc-item" onclick="goToSlide(5)">06 論文 4：Yang 2024 多模態手勢辨識</div>
+    <div class="toc-item" onclick="goToSlide(6)">07 論文 5：Zhang 2026 振動觸覺感覺回饋閉環</div>
+    <div class="toc-item" onclick="goToSlide(7)">08 綜合對照：5 篇論文技術路線大矩陣</div>
+    <div class="toc-item" onclick="goToSlide(8)">09 物理深入：體導電與小波奇異點推導</div>
+    <div class="toc-item" onclick="goToSlide(9)">10 演算法：TSVM 雙非平行超平面</div>
+    <div class="toc-item" onclick="goToSlide(10)">11 臨床挑戰：延遲門檻與肌肉廢用性萎縮</div>
+    <div class="toc-item" onclick="goToSlide(11)">12 總結與未來展望：邁向智慧閉環手</div>
+  </div>
+
+  <!-- 投影片內容視窗 -->
+  <main id="slide-viewport">
+
+    <!-- Slide 1: 封面 -->
+    <section class="slide-page active" id="slide-0">
+      <div class="slide-heading-group">
+        <h1 class="slide-title">前臂表面肌電訊號解碼與上肢神經復健</h1>
+        <p class="slide-subtitle">從單通道體導電物理特性、肌群選擇性活化，到感覺反饋閉環神經系統</p>
+      </div>
+      <div class="dashboard-banner">
+        <div class="stat-card">
+          <div class="stat-number">5 Papers</div>
+          <div class="stat-label">頂尖學術文獻收錄</div>
+          <div class="stat-desc">涵蓋 JNER, Human Factors, IJSPT, Front. Bioeng.</div>
+        </div>
+        <div class="stat-card" style="border-left-color: var(--accent-slate);">
+          <div class="stat-number" style="color:var(--accent-slate);">2013~2026</div>
+          <div class="stat-label">十三年技術演進全景</div>
+          <div class="stat-desc">從單向運動意圖解碼邁向感覺-動作雙向閉環</div>
+        </div>
+        <div class="stat-card" style="border-left-color: var(--accent-sage);">
+          <div class="stat-number" style="color:var(--accent-sage);">FDS Muscle</div>
+          <div class="stat-label">核心目標深淺肌群</div>
+          <div class="stat-desc">橈側屈指淺肌為核心之生理、物理與運動分析</div>
+        </div>
+      </div>
+      <div class="grid-2col">
+        <div class="m-card featured">
+          <div class="card-title"><span class="icon-indicator"></span>知識庫核心架構與宗旨</div>
+          <ul class="bullet-list">
+            <li><strong>解碼突破:</strong> 解決前臂肌電多通道電極陣列易受滑移干擾、病患難以自主穿戴的臨床困局。</li>
+            <li><strong>多維交叉:</strong> 融合微觀小波奇異點、體導電物理傳導、運動復健解剖、多模態感測與觸覺刺激。</li>
+          </ul>
+        </div>
+        <div class="m-card slate">
+          <div class="card-title"><span class="icon-indicator"></span>研讀與口試導覽提示</div>
+          <ul class="bullet-list">
+            <li><strong>按 N 鍵開啟複習手冊:</strong> 每一頁均附帶完整的論文原始數據、數學公式推導與口試擬答。</li>
+            <li><strong>鍵盤導航:</strong> 支援左右箭頭鍵切換頁面，按 F 鍵進入全螢幕專業演講模式。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 2: 臨床背景與核心痛點 -->
+    <section class="slide-page" id="slide-1">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">問題意識：肌電義肢臨床應用的三大死穴</h2>
+        <p class="slide-subtitle">為什麼先進的仿生機械手在實驗室表現優異，離開醫院後卻有高達 50% 棄用率？</p>
+      </div>
+      <div class="grid-3col">
+        <div class="m-card featured">
+          <div class="card-title"><span class="icon-indicator"></span>1. 電極位移致錯 (Displacement)</div>
+          <p class="content-text">穿脫接受腔 (Socket) 或手臂擺動、流汗產生的微小滑移（僅需 1~2 mm），會徹底顛覆空間訊號幾何分佈，導致多通道分類器全面崩潰。</p>
+        </div>
+        <div class="m-card slate">
+          <div class="card-title"><span class="icon-indicator"></span>2. 深淺肌群串擾 (Cross-talk)</div>
+          <p class="content-text">前臂深淺肌肉緊密交疊，低強度微弱收縮時訊號易被周圍肌肉外溢電位與環境噪聲淹沒，傳統全域時頻特徵無法反映真實發力肌腹。</p>
+        </div>
+        <div class="m-card sage">
+          <div class="card-title"><span class="icon-indicator"></span>3. 缺乏感覺回饋 (Open-Loop)</div>
+          <p class="content-text">傳統義肢屬於「開環控制」，使用者無法感知抓握力道大小，只能仰賴眼睛盯著看，導致嚴重的認知疲勞與大腦運動皮質退化。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 3: 論文 1 · Kumar 2013 -->
+    <section class="slide-page" id="slide-2">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">2013 Dinesh Kant Kumar et al.</h2>
+        <p class="slide-subtitle">單通道表面肌電突破：體導電物理特性與小波極大值密度 (WMD) 抗位移辨識</p>
+      </div>
+      <div class="dashboard-banner">
+        <div class="stat-card">
+          <div class="stat-number">93.41%</div>
+          <div class="stat-label">健全者遠端準確率</div>
+          <div class="stat-desc">電極移至近端僅降 1.01% (92.4%)</div>
+        </div>
+        <div class="stat-card" style="border-left-color: var(--accent-slate);">
+          <div class="stat-number" style="color:var(--accent-slate);">81.87%</div>
+          <div class="stat-label">前臂截肢者平均成效</div>
+          <div class="stat-desc">殘肢通道 2 結合雙側鏡像動作訓練</div>
+        </div>
+        <div class="stat-card" style="border-left-color: var(--accent-sage);">
+          <div class="stat-number" style="color:var(--accent-sage);">&lt; 300 ms</div>
+          <div class="stat-label">即時控制延遲門檻</div>
+          <div class="stat-desc">200ms 滑動窗實測準確率無顯著衰退</div>
+        </div>
+      </div>
+      <div class="grid-2col">
+        <div class="m-card featured">
+          <div class="card-title"><span class="icon-indicator"></span>體導電與小波極大值特徵</div>
+          <ul class="bullet-list">
+            <li><strong>物理本質:</strong> 肌肉組織為各向異性導電體，橫向衰減迅速，同源肌纖維具相似振幅。</li>
+            <li><strong>WMD 奇異點追蹤:</strong> 雙正交小波 <code>bior3.3</code> 跨尺度追蹤 MUAP，自動剔除隨機高頻瞬態噪聲。</li>
+          </ul>
+        </div>
+        <div class="m-card slate">
+          <div class="card-title"><span class="icon-indicator"></span>TSVM 雙超平面分類</div>
+          <ul class="bullet-list">
+            <li><strong>運算加速 4 倍:</strong> 拆解為兩個小型二次規劃問題，大幅降低計算負擔。</li>
+            <li><strong>適應非對稱分佈:</strong> 完美包容生醫肌電在不同手指收縮時的離散不對稱性。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 4: 論文 2 · Yao 2020 -->
+    <section class="slide-page" id="slide-3">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">2020 Yumeng Yao et al.</h2>
+        <p class="slide-subtitle">前臂肌群物理干擾耐受：抗振手套與外部負載對表面肌電特徵之影響</p>
+      </div>
+      <div class="dashboard-banner">
+        <div class="stat-card">
+          <div class="stat-number">+48%</div>
+          <div class="stat-label">肌電活動平均增幅</div>
+          <div class="stat-desc">配戴手套使 ECR 與 FCR 負荷顯著上升</div>
+        </div>
+        <div class="stat-card" style="border-left-color: var(--accent-slate);">
+          <div class="stat-number" style="color:var(--accent-slate);">r = 0.74</div>
+          <div class="stat-label">厚度與肌電相關係數</div>
+          <div class="stat-desc">手套材料厚度越大，前臂肌群做功負擔越重</div>
+        </div>
+        <div class="stat-card" style="border-left-color: var(--accent-sage);">
+          <div class="stat-number" style="color:var(--accent-sage);">r = 0.90</div>
+          <div class="stat-label">靈活性負相關係數</div>
+          <div class="stat-desc">手部靈巧度下降直接導致代償性用力增加</div>
+        </div>
+      </div>
+      <div class="grid-2col">
+        <div class="m-card featured">
+          <div class="card-title"><span class="icon-indicator"></span>實驗設計與測量架構</div>
+          <ul class="bullet-list">
+            <li><strong>多肌群同時採集:</strong> 監測 ECR, ED, FCR 及控制手指之關鍵 FDS (橈側屈指淺肌)。</li>
+            <li><strong>測試條件:</strong> 15 位受試者、11 種手套配置（含裸手對照組），雙重抓握力水準。</li>
+          </ul>
+        </div>
+        <div class="m-card slate">
+          <div class="card-title"><span class="icon-indicator"></span>智慧義肢的工程啟發</div>
+          <ul class="bullet-list">
+            <li><strong>物理外力使肌電基線漂移:</strong> 穿戴手套或受力會改變肌電能量分佈達 22%~78%。</li>
+            <li><strong>抗干擾演算法必要性:</strong> 義肢解碼不可盲目依賴全域能量，必須結合微觀不變特徵。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 5: 論文 3 · Fukunaga 2023 -->
+    <section class="slide-page" id="slide-4">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">2023 Takumi Fukunaga et al.</h2>
+        <p class="slide-subtitle">肌肉生理與神經招募：前臂屈肌群 (FDS) 與旋前肌群的選擇性活化機制</p>
+      </div>
+      <div class="dashboard-banner">
+        <div class="stat-card">
+          <div class="stat-number">52% MVC</div>
+          <div class="stat-label">旋前動作下 PT 活化度</div>
+          <div class="stat-desc">顯著高於 FDS 的 26% MVC，展現肌群選擇性</div>
+        </div>
+        <div class="stat-card" style="border-left-color: var(--accent-slate);">
+          <div class="stat-number" style="color:var(--accent-slate);">48% MVC</div>
+          <div class="stat-label">手腕尺偏下 FCU 活化度</div>
+          <div class="stat-desc">協同帶動 FDS 達成 34% MVC 穩定活化</div>
+        </div>
+        <div class="stat-card" style="border-left-color: var(--accent-sage);">
+          <div class="stat-number" style="color:var(--accent-sage);">3 Muscles</div>
+          <div class="stat-label">深淺關鍵肌群同步量測</div>
+          <div class="stat-desc">FDS (屈指淺肌) + FCU (尺側屈腕) + PT (旋前圓肌)</div>
+        </div>
+      </div>
+      <div class="grid-2col">
+        <div class="m-card featured">
+          <div class="card-title"><span class="icon-indicator"></span>生理機制與實驗設計</div>
+          <ul class="bullet-list">
+            <li><strong>最大自主收縮 (MVC) 標準化:</strong> 消除個體力量差異，精確評估深淺肌群活化比例。</li>
+            <li><strong>阻力運動介入:</strong> 採用彈力阻力帶執行手腕尺偏與前臂旋前動作。</li>
+          </ul>
+        </div>
+        <div class="m-card sage">
+          <div class="card-title"><span class="icon-indicator"></span>對義肢解碼的解剖學貢獻</div>
+          <ul class="bullet-list">
+            <li><strong>神經選擇性分工實證:</strong> 證實前臂深淺肌肉在不同動作下具有明確的神經招募差異。</li>
+            <li><strong>多自由度控制基礎:</strong> 為肌電假手設計「旋前」與「抓握」提供了互不干擾的特徵源。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 6: 論文 4 · Yang 2024 -->
+    <section class="slide-page" id="slide-5">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">2024 Xiuxiu Yang et al.</h2>
+        <p class="slide-subtitle">多模態特徵融合：6 通道 sEMG 結合手指運動軌跡之手勢分類與智慧復健</p>
+      </div>
+      <div class="dashboard-banner">
+        <div class="stat-card">
+          <div class="stat-number">&gt; 90%</div>
+          <div class="stat-label">跨模型分類精確率</div>
+          <div class="stat-desc">SVM, LightGBM, MLP 在獨立測試集皆突破 90%</div>
+        </div>
+        <div class="stat-card" style="border-left-color: var(--accent-slate);">
+          <div class="stat-number" style="color:var(--accent-slate);">6 Channels</div>
+          <div class="stat-label">前臂表面肌電陣列</div>
+          <div class="stat-desc">精確覆蓋 FDS (屈指淺肌) 與 FDP (屈指深肌)</div>
+        </div>
+        <div class="stat-card" style="border-left-color: var(--accent-sage);">
+          <div class="stat-number" style="color:var(--accent-sage);">900 Sets</div>
+          <div class="stat-label">醫院臨床實測數據庫</div>
+          <div class="stat-desc">涵蓋中風運動障礙患者與健全者之 6 類手勢</div>
+        </div>
+      </div>
+      <div class="grid-2col">
+        <div class="m-card featured">
+          <div class="card-title"><span class="icon-indicator"></span>多模態硬體與前處理創新</div>
+          <ul class="bullet-list">
+            <li><strong>雙訊號融合:</strong> 柔性手指彎曲傳感手套（物理軌跡）+ 6 通道 sEMG（神經發力意圖）。</li>
+            <li><strong>Savitzky–Golay 濾波 + STFT:</strong> 平滑去除噪聲並精確保留時頻譜瞬態突變。</li>
+          </ul>
+        </div>
+        <div class="m-card ochre">
+          <div class="card-title"><span class="icon-indicator"></span>臨床復健評估突破</div>
+          <ul class="bullet-list">
+            <li><strong>抗單一通道訊號漂移:</strong> 運動手套與肌電互相校準，嚴重痙攣患者依然準確。</li>
+            <li><strong>量化功能評估:</strong> 跳脫傳統人工量表，實現客觀、連續的智慧復健追蹤。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 7: 論文 5 · Zhang 2026 -->
+    <section class="slide-page" id="slide-6">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">2026 Wenbin Zhang et al.</h2>
+        <p class="slide-subtitle">閉環神經拼圖：振動觸覺感覺回饋 (Vibrotactile Stimulation) 與神經重塑</p>
+      </div>
+      <div class="dashboard-banner">
+        <div class="stat-card">
+          <div class="stat-number">35 Studies</div>
+          <div class="stat-label">PRISMA 系統性文獻回顧</div>
+          <div class="stat-desc">全面統整 2015–2026 年上肢振動觸覺神經復健實證</div>
+        </div>
+        <div class="stat-card" style="border-left-color: var(--accent-slate);">
+          <div class="stat-number" style="color:var(--accent-slate);">FMA-UE &uarr;</div>
+          <div class="stat-label">臨床運動功能顯著提升</div>
+          <div class="stat-desc">Fugl-Meyer 上肢評分提升且肌肉痙攣度顯著緩解</div>
+        </div>
+        <div class="stat-card" style="border-left-color: var(--accent-sage);">
+          <div class="stat-number" style="color:var(--accent-sage);">Closed-Loop</div>
+          <div class="stat-label">感覺-動作雙向閉環</div>
+          <div class="stat-desc">填補智慧假手「僅有動作輸出、缺乏感覺輸入」盲區</div>
+        </div>
+      </div>
+      <div class="grid-2col">
+        <div class="m-card featured">
+          <div class="card-title"><span class="icon-indicator"></span>感覺傳入的神經生物學機制</div>
+          <ul class="bullet-list">
+            <li><strong>體感受體激活:</strong> 活化巴齊尼氏小體與邁斯納氏小體，經背柱傳入 S1 感覺皮質。</li>
+            <li><strong>突觸可塑性 (LTP):</strong> 感覺輸入重新喚醒大腦 M1 運動皮質，促進受損神經元修復。</li>
+          </ul>
+        </div>
+        <div class="m-card sage">
+          <div class="card-title"><span class="icon-indicator"></span>工程系統整合範式</div>
+          <ul class="bullet-list">
+            <li><strong>假手力道即時編碼:</strong> 握力傳感器 ➔ 微型震動致動器 (LRA) 頻率變化 ➔ 患者皮膚。</li>
+            <li><strong>大腦即時自適應調整:</strong> 使用者能即時微調肌電發力，根本性解決開環控制失誤。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 8: 綜合對比矩陣 (5 篇論文大對決) -->
+    <section class="slide-page" id="slide-7">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">綜合對照：5 篇論文技術路線大矩陣</h2>
+        <p class="slide-subtitle">橫向跨篇綜合對比：硬體通道、目標肌群、特徵演算法、準確率與臨床角色</p>
+      </div>
+      <div class="m-card" style="padding: 16px 20px;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>文獻年份</th>
+              <th>主要作者</th>
+              <th>感測硬體與通道</th>
+              <th>目標肌肉群</th>
+              <th>核心特徵 / 演算法</th>
+              <th>主要成效 / 指標</th>
+              <th>人機系統角色定位</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>2013</strong></td>
+              <td>Kumar et al.</td>
+              <td>單通道雙極 sEMG</td>
+              <td>FDS (屈指淺肌)</td>
+              <td>WMD 小波奇異點 + TSVM</td>
+              <td class="highlight-cell">93.41% (位移僅降 1%)</td>
+              <td>單通道抗位移解碼突破</td>
+            </tr>
+            <tr>
+              <td><strong>2020</strong></td>
+              <td>Yao et al.</td>
+              <td>多通道 sEMG + 測力計</td>
+              <td>FDS, FCR, ECR, ED</td>
+              <td>RMS 能量 + 相關性分析</td>
+              <td>肌電負載增加 22%~78%</td>
+              <td>外力干擾肌電漂移基準</td>
+            </tr>
+            <tr>
+              <td><strong>2023</strong></td>
+              <td>Fukunaga et al.</td>
+              <td>3 通道 sEMG + 阻力帶</td>
+              <td>FDS, FCU, PT</td>
+              <td>% MVC 最大自主收縮</td>
+              <td>PT 52%, FCU 48% MVC</td>
+              <td>深淺肌群選擇性招募機制</td>
+            </tr>
+            <tr>
+              <td><strong>2024</strong></td>
+              <td>Yang et al.</td>
+              <td>6 通道 sEMG + 運動手套</td>
+              <td>FDS, FDP 及前臂肌陣列</td>
+              <td>SG 濾波 + STFT + LightGBM</td>
+              <td class="highlight-cell">6 類手勢精確率 &gt; 90%</td>
+              <td>多模態融合抗干擾手勢評估</td>
+            </tr>
+            <tr>
+              <td><strong>2026</strong></td>
+              <td>Zhang et al.</td>
+              <td>振動致動器 (VTS) + 機器人</td>
+              <td>前臂體表感覺受體</td>
+              <td>神經反饋編碼 + LTP 可塑性</td>
+              <td>FMA-UE 運動評分顯著提升</td>
+              <td>感覺-動作雙向神經閉環</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Slide 9: 物理推導深入 (體導電與小波) -->
+    <section class="slide-page" id="slide-8">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">物理深入：體導電與小波奇異點數學推導</h2>
+        <p class="slide-subtitle">解密為何單通道能解耦深淺肌群動作的底層數學與物理物理機轉</p>
+      </div>
+      <div class="grid-2col">
+        <div class="m-card featured">
+          <div class="card-title"><span class="icon-indicator"></span>各向異性體導電傳導衰減模型</div>
+          <div class="formula-box">
+            $$A_{\text{singularity}} \propto \frac{1}{d^p} \quad (p \ge 1), \qquad \sigma_z \gg \sigma_x \approx \sigma_y$$
+            <div class="formula-caption">肌纖維長軸電導率遠高於橫向，奇異點振幅隨垂直幾何距離呈反比急劇衰減。</div>
+          </div>
+          <p class="content-text">同源肌纖維具相似振幅量級；支配不同手指的 FDS 肌腹解剖深度不同，在體表形成天然振幅分層。</p>
+        </div>
+        <div class="m-card slate">
+          <div class="card-title"><span class="icon-indicator"></span>雙正交小波跨尺度奇異點判據</div>
+          <div class="formula-box">
+            $$W f(s, x_{n-1}) < W f(s, x_n) > W f(s, x_{n+1})$$
+            <div class="formula-caption">跨尺度穩定傳播至最粗尺度者為真實 MUAP，孤立高頻噪聲自動剔除。</div>
+          </div>
+          <p class="content-text">以 300ms 滑動窗提取「峰值密度 ($D_{\text{peaks}}$)」與「平均振幅 ($\mu_{\text{mag}}$)」，建構抗電極滑移之二維特徵。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 10: 演算法深入 (TSVM 雙超平面) -->
+    <section class="slide-page" id="slide-9">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">演算法：TSVM 雙非平行超平面二次規劃</h2>
+        <p class="slide-subtitle">孿生支援向量機如何以 4 倍運算加速完美適應生醫肌電非對稱分佈</p>
+      </div>
+      <div class="grid-2col">
+        <div class="m-card featured">
+          <div class="card-title"><span class="icon-indicator"></span>雙二次規劃問題 (QPPs) 數學模型</div>
+          <div class="formula-box" style="text-align:left; font-size:0.88rem;">
+            $$\min_{w_1, b_1, q} \frac{1}{2} \|A w_1 + e_1 b_1\|^2 + c_1 e_2^T q \quad \text{s.t. } -(B w_1 + e_2 b_1) + q \ge e_2$$
+            $$\min_{w_2, b_2, p} \frac{1}{2} \|B w_2 + e_2 b_2\|^2 + c_2 e_1^T p \quad \text{s.t. } (A w_2 + e_1 b_2) + p \ge e_1$$
+          </div>
+          <p class="content-text">兩超平面分別貼合各自類別樣本，並約束對手樣本遠離，放寬平行束縛。</p>
+        </div>
+        <div class="m-card sage">
+          <div class="card-title"><span class="icon-indicator"></span>幾何距離決策準則與複雜度分析</div>
+          <div class="formula-box">
+            $$\text{Class}(x) = \arg\min_{k \in \{1, 2\}} \frac{|x^T w_k + b_k|}{\|w_k\|}$$
+          </div>
+          <ul class="bullet-list">
+            <li><strong>運算加速 4 倍:</strong> 複雜度由 $\mathcal{O}((m_1+m_2)^3)$ 降至 $\mathcal{O}(m_1^3) + \mathcal{O}(m_2^3)$。</li>
+            <li><strong>嵌入式微處理器友好:</strong> 極低矩陣求逆開銷，完全可在義肢板載微控制器即時運算。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 11: 臨床挑戰 (延遲與萎縮) -->
+    <section class="slide-page" id="slide-10">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">臨床挑戰：延遲門檻與肌肉廢用性萎縮</h2>
+        <p class="slide-subtitle">人體工學 300ms 即時反饋限制，與截肢患者殘肢神經解剖重塑病理分析</p>
+      </div>
+      <div class="grid-2col">
+        <div class="m-card featured">
+          <div class="card-title"><span class="icon-indicator"></span>&lt; 300 ms 即時控制黃金延遲門檻</div>
+          <ul class="bullet-list">
+            <li><strong>人體工學界限:</strong> 訊號擷取至馬達執行超過 300ms 即產生遲滯感，引發大腦控制震盪。</li>
+            <li><strong>200 ms 極限測試:</strong> 窗長縮短至 200ms 準確率依然穩健，留出充裕的機械馬達驅動餘裕。</li>
+          </ul>
+        </div>
+        <div class="m-card sage">
+          <div class="card-title"><span class="icon-indicator"></span>截肢者殘肢病理萎縮與應對策略</div>
+          <ul class="bullet-list">
+            <li><strong>肌肉廢用性萎縮 (Disuse Atrophy):</strong> 缺乏負載使肌纖維變細，肌電振幅下降 40%~60%。</li>
+            <li><strong>手術附著點重編:</strong> 肌腱縫合改變體導電幾何路徑，造成部分電極通道不收斂。</li>
+            <li><strong>雙側動作訓練:</strong> 利用健側手做動作誘導患側大腦運動皮層放電，加速神經重塑。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 12: 核心總結與未來展望 -->
+    <section class="slide-page" id="slide-11">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">結論與未來展望：邁向智慧閉環手</h2>
+        <p class="slide-subtitle">五篇核心論文帶給智慧義肢與人機復健領域的終極啟發</p>
+      </div>
+      <div class="grid-3col">
+        <div class="m-card featured">
+          <div class="card-title"><span class="icon-indicator"></span>1. 物理引導的特徵工程</div>
+          <p class="content-text">以體導電理論取代黑盒統計，以小波奇異點解耦深淺肌群，實現高抗位移單通道控制。</p>
+        </div>
+        <div class="m-card slate">
+          <div class="card-title"><span class="icon-indicator"></span>2. 多模態感知抗干擾</div>
+          <p class="content-text">肌電意圖結合物理運動軌跡，克服外力振動與手套帶來的 22%~78% 肌電基線漂移。</p>
+        </div>
+        <div class="m-card sage">
+          <div class="card-title"><span class="icon-indicator"></span>3. 感覺回饋雙向閉環</div>
+          <p class="content-text">導入振動觸覺反饋刺激，讓大腦即時微調肌電，構建真正符合人體生理本能的神經假手。</p>
+        </div>
+      </div>
+      <div class="m-card" style="margin-top:22px; background:var(--accent-terracotta-light); border:1px solid rgba(168, 87, 81, 0.35);">
+        <p class="content-text" style="margin-bottom:0; font-weight:700; color:var(--accent-terracotta); text-align:center; font-size:1.15rem;">
+          ★ 「從單通道物理抗位移解碼，到多模態融合與觸覺回饋閉環，神經人機介面正邁向真正的身手合一。」
+        </p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 底部操作提示與頁碼 -->
+  <footer class="slide-footer">
+    <div class="footer-hints">
+      <span>切頁：<span class="kbd-shortcut">←</span> <span class="kbd-shortcut">→</span></span>
+      <span>筆記：<span class="kbd-shortcut">N</span></span>
+      <span>全螢幕：<span class="kbd-shortcut">F</span></span>
+    </div>
+    <div class="footer-controls">
+      <button class="icon-ctrl-btn" onclick="goToSlide(0)" title="返回第一頁">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      </button>
+      <button class="icon-ctrl-btn" onclick="prevSlide()" title="上一頁">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="slide-page-badge" id="slide-indicator">01 / 12</div>
+      <button class="icon-ctrl-btn" onclick="nextSlide()" title="下一頁">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+  </footer>
+
+  <!-- 研讀筆記抽屜 (Study Notes Drawer) -->
+  <div id="notes-drawer">
+    <div class="notes-header">
+      <div class="notes-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <span>深度研讀筆記與複習手冊</span>
+      </div>
+      <button class="notes-close-btn" onclick="toggleNotes()" title="關閉筆記 (Esc)">✕</button>
+    </div>
+    <div class="notes-body" id="notes-content">
+      <!-- 內容由 JavaScript 動態載入 -->
+    </div>
+  </div>
+
+  <!-- JavaScript 投影片控制器 -->
+  <script>
+    // 12 頁專屬極致深度研讀筆記資料庫
+    const slideNotes = [
+      {
+        wiki: "wiki/index.md",
+        title: "Slide 1 研讀筆記：全景導論與知識庫結構",
+        sections: [
+          {
+            heading: "📖 全景視野",
+            content: `<p>本知識庫由 5 篇重要文獻交織而成，橫跨生物物理（體導電）、訊號處理（小波奇異點）、運動解剖（選擇性活化）、多模態融合（肌電+運動手套）與神經閉環（振動刺激）。</p>`
+          },
+          {
+            heading: "💡 報告提點",
+            content: `<p>報告開場時應強調：表面肌電訊號在臨床落地的兩大難關是「電極位移」與「開環缺乏回饋」，本專案從 5 篇論文逐層拆解解決方案。</p>`
+          }
+        ]
+      },
+      {
+        wiki: "wiki/concepts/Myoelectric_Prosthesis_Control.md",
+        title: "Slide 2 研讀筆記：臨床三大死穴深度剖析",
+        sections: [
+          {
+            heading: "📖 臨床痛點總結",
+            content: `<p>多通道系統（19~32 通道）沉重且位移 1mm 即崩潰；單通道過去準確率僅 56%；且缺乏觸覺感知，導致患者不得不依賴視覺監控，大腦負擔極高。</p>`
+          }
+        ]
+      },
+      {
+        wiki: "wiki/papers/kumar2013_finger_flexions_semg.md",
+        title: "Slide 3 研讀筆記：Kumar 2013 單通道體導電突破",
+        sections: [
+          {
+            heading: "🔬 硬體與數據全貌",
+            content: `<p>DELSYS 雙極電極（10mm 間距，取樣 1024 Hz，增益 1000，92dB CMRR）。11 位健全者遠端 93.41% vs 近端 92.40%（位移僅降 1%）。截肢者殘肢通道 2 達 81.87%。</p>`
+          }
+        ]
+      },
+      {
+        wiki: "wiki/papers/yao2020_forearm_muscles_antivibration.md",
+        title: "Slide 4 研讀筆記：Yao 2020 物理干擾與肌電耐受基準",
+        sections: [
+          {
+            heading: "🔬 核心數據解析",
+            content: `<p>手套與外力抓握使 ECR 與 FCR 綜合肌電增加 22%~78%（平均 48%），與厚度呈正相關 (r=0.74)，與靈巧度呈負相關 (r=0.90)。證明純能量特徵易受外力漂移。</p>`
+          }
+        ]
+      },
+      {
+        wiki: "wiki/papers/fukunaga2023_flexor_pronator_semg.md",
+        title: "Slide 5 研讀筆記：Fukunaga 2023 FDS 選擇性活化機制",
+        sections: [
+          {
+            heading: "🔬 解剖生理機制",
+            content: `<p>旋前圓肌 (PT) 在旋前阻力下活化達 52% MVC，顯著高於 FDS 的 26%；手腕尺偏下 FCU 達 48% MVC 並帶動 FDS (34% MVC)。證實深淺肌肉具神經選擇性分工。</p>`
+          }
+        ]
+      },
+      {
+        wiki: "wiki/papers/yang2024_gesture_classification_semg_motion.md",
+        title: "Slide 6 研讀筆記：Yang 2024 多模態融合手勢評估",
+        sections: [
+          {
+            heading: "🔬 多模態系統細節",
+            content: `<p>6 通道 sEMG 覆蓋 FDS 與 FDP，結合柔性彎曲感測手套。SG 濾波 + STFT 時頻譜，LightGBM 與 SVM 在中風患者與健全者 6 類手勢中精準度突破 90%。</p>`
+          }
+        ]
+      },
+      {
+        wiki: "wiki/papers/zhang2026_vibrotactile_neurorehabilitation_review.md",
+        title: "Slide 7 研讀筆記：Zhang 2026 振動觸覺刺激與閉環神經系統",
+        sections: [
+          {
+            heading: "🔬 閉環神經重塑",
+            content: `<p>PRISMA 統合 35 項研究。VTS 活化巴齊尼氏小體傳入 S1 感覺皮層，促進 M1 運動皮質 LTP 突觸重塑，顯著改善中風偏癱 FMA-UE 評分並緩解痙攣。</p>`
+          }
+        ]
+      },
+      {
+        wiki: "wiki/comparisons/cross_paper_matrix.md",
+        title: "Slide 8 研讀筆記：5 篇論文跨技術路線綜合矩陣",
+        sections: [
+          {
+            heading: "📖 橫向比較精髓",
+            content: `<p>從單通道體導電物理特徵 (Kumar) ➔ 物理干擾基準 (Yao) ➔ 深淺肌群神經招募 (Fukunaga) ➔ 多模態感知融合 (Yang) ➔ 感覺反饋閉環 (Zhang)，構成完整的知識生態。</p>`
+          }
+        ]
+      },
+      {
+        wiki: "wiki/concepts/Volume_Conduction_Theory.md",
+        title: "Slide 9 研讀筆記：體導電物理與小波奇異點公式推導",
+        sections: [
+          {
+            heading: "🔬 數學衰減推導",
+            content: `<p>各向異性導電中縱向電導遠大於橫向 (&sigma;z >> &sigma;x)，振幅反比衰減 A &prop; 1/d^p。bior3.3 跨尺度極大值追蹤有效區分真實 MUAP 與瞬態熱噪聲。</p>`
+          }
+        ]
+      },
+      {
+        wiki: "wiki/concepts/Twin_SVM.md",
+        title: "Slide 10 研讀筆記：TSVM 雙非平行超平面二次規劃求解",
+        sections: [
+          {
+            heading: "🔬 最佳化與複雜度",
+            content: `<p>求解一對非平行超平面，計算測試點垂直幾何距離分類。複雜度由 O((m1+m2)^3) 降至 O(m1^3)+O(m2^3)，運算速度提升約 4 倍，極利於嵌入式晶片。</p>`
+          }
+        ]
+      },
+      {
+        wiki: "wiki/concepts/Myoelectric_Prosthesis_Control.md",
+        title: "Slide 11 研讀筆記：300ms 延遲上限與肌肉廢用性萎縮病理解析",
+        sections: [
+          {
+            heading: "🔬 生理與病理解構",
+            content: `<p>人體工學要求閉環延遲小於 300ms；截肢殘肢肌纖維長期缺乏負載產生廢用性萎縮 (Disuse Atrophy)，肌纖維橫截面縮小且手術縫合改變了力線與體導電幾何。</p>`
+          }
+        ]
+      },
+      {
+        wiki: "wiki/papers/kumar2013_finger_flexions_semg.md & wiki/index.md",
+        title: "Slide 12 研讀筆記：總結、核心 Takeaway 與口頭講稿",
+        sections: [
+          {
+            heading: "📖 口頭報告總結講稿",
+            content: `<p>★ 「從單通道物理抗位移解碼，到多模態融合與觸覺回饋閉環，神經人機介面正邁向真正的身手合一。」感謝評審與同學聆聽，歡迎提問交流！</p>`
+          }
+        ]
+      }
+    ];
+
+    let currentSlide = 0;
+    const totalSlides = 12;
+    let notesOpen = false;
+    let tocOpen = false;
+
+    function updateSlide() {
+      // 切換投影片顯示
+      document.querySelectorAll('.slide-page').forEach((slide, idx) => {
+        if (idx === currentSlide) {
+          slide.classList.add('active');
+        } else {
+          slide.classList.remove('active');
+        }
+      });
+
+      // 更新進度條與頁碼
+      const progressPercent = ((currentSlide + 1) / totalSlides) * 100;
+      document.getElementById('progress-bar').style.width = progressPercent + '%';
+      document.getElementById('slide-indicator').textContent = 
+        String(currentSlide + 1).padStart(2, '0') + ' / ' + String(totalSlides).padStart(2, '0');
+
+      // 更新 TOC 清單的高亮狀態
+      document.querySelectorAll('.toc-item').forEach((item, idx) => {
+        if (idx === currentSlide) {
+          item.classList.add('active');
+        } else {
+          item.classList.remove('active');
+        }
+      });
+
+      // 更新研讀筆記內容
+      const note = slideNotes[currentSlide];
+      const notesContainer = document.getElementById('notes-content');
+      let sectionsHtml = '';
+      if (note && note.sections) {
+        note.sections.forEach(sec => {
+          sectionsHtml += `
+            <div class="notes-card-section">
+              <h4>${sec.heading}</h4>
+              <div>${sec.content}</div>
+            </div>
+          `;
+        });
+        notesContainer.innerHTML = `
+          <span class="wiki-tag">Wiki 溯源節點：${note.wiki}</span>
+          <h3 style="color:#FFF; font-size:1.15rem; margin-bottom:12px;">${note.title}</h3>
+          ${sectionsHtml}
+        `;
+      }
+
+      // 觸發 KaTeX 渲染
+      if (window.renderMathInElement) {
+        renderMathInElement(document.getElementById('slide-viewport'), {
+          delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]
+        });
+        renderMathInElement(notesContainer, {
+          delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]
+        });
+      }
+    }
+
+    function nextSlide() {
+      if (currentSlide < totalSlides - 1) {
+        currentSlide++;
+        updateSlide();
+      }
+    }
+
+    function prevSlide() {
+      if (currentSlide > 0) {
+        currentSlide--;
+        updateSlide();
+      }
+    }
+
+    function goToSlide(idx) {
+      if (idx >= 0 && idx < totalSlides) {
+        currentSlide = idx;
+        updateSlide();
+        if (tocOpen) toggleToc();
+      }
+    }
+
+    // 筆記抽屜開關
+    function toggleNotes() {
+      notesOpen = !notesOpen;
+      const drawer = document.getElementById('notes-drawer');
+      const btn = document.getElementById('btn-notes');
+      if (notesOpen) {
+        drawer.classList.add('open');
+        btn.classList.add('active');
+      } else {
+        drawer.classList.remove('open');
+        btn.classList.remove('active');
+      }
+    }
+
+    // 章節導覽 Modal 開關
+    function toggleToc() {
+      tocOpen = !tocOpen;
+      const modal = document.getElementById('toc-modal');
+      const btn = document.getElementById('btn-toc');
+      if (tocOpen) {
+        modal.classList.add('open');
+        btn.classList.add('active');
+      } else {
+        modal.classList.remove('open');
+        btn.classList.remove('active');
+      }
+    }
+
+    // 全螢幕切換
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+          console.warn(`Error attempting to enable full-screen mode: ${err.message}`);
+        });
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+
+    // 鍵盤導航監聽
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+        e.preventDefault();
+        nextSlide();
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        e.preventDefault();
+        prevSlide();
+      } else if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        toggleNotes();
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        toggleFullscreen();
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        goToSlide(0);
+      } else if (e.key === 'Escape') {
+        if (tocOpen) toggleToc();
+        if (notesOpen) toggleNotes();
+      }
+    });
+
+    // 深度連結跳轉支援 (Hash deep-linking)
+    function checkHash() {
+      if (window.location.hash) {
+        const match = window.location.hash.match(/slide-(\d+)/);
+        if (match) {
+          const target = parseInt(match[1]);
+          if (target >= 0 && target < totalSlides) {
+            currentSlide = target;
+          }
+        }
+      }
+    }
+
+    window.addEventListener('hashchange', () => {
+      checkHash();
+      updateSlide();
+    });
+
+    // 初始化載入
+    window.addEventListener('DOMContentLoaded', () => {
+      checkHash();
+      updateSlide();
+    });
+  </script>
+</body>
+</html>
