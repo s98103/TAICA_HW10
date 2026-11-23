@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>單通道表面肌電訊號的手指動作辨識 — 深度教學簡報與論文研讀手冊</title>
+  
+  <!-- KaTeX 數學公式排版引擎 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" 
+          onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+
+  <style>
+    /* 莫蘭迪灰階石墨與啞光磚紅 (Graphite & Muted Terracotta) 核心色彩定義 */
+    :root {
+      --bg-color: #F8F7F4;
+      --card-bg: #FFFFFF;
+      --card-border: #E2DFD6;
+      --text-main: #343840;
+      --text-muted: #6C727D;
+      --heading-color: #20242B;
+      
+      --accent-terracotta: #A85751;       /* 核心強調：啞光磚紅 */
+      --accent-terracotta-light: #F7EFEF; /* 淺磚紅 */
+      --accent-slate: #4A6B82;            /* 輔助：莫蘭迪灰藍 */
+      --accent-slate-light: #EDF3F7;
+      --accent-sage: #5A7052;             /* 輔助：鼠尾草綠 */
+      --accent-sage-light: #EFF4EE;
+      --accent-ochre: #B8834F;            /* 輔助：莫蘭迪陶土黃 */
+      --accent-ochre-light: #F9F3EC;
+      
+      --math-bg: #F4F1EA;
+      --notes-bg: #1E222A;
+      --notes-card: #282C36;
+      --notes-text: #E5E7EB;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+      --font-mono: "Fira Code", Consolas, Monaco, "Courier New", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      user-select: text;
+    }
+
+    /* 頂部進度指示條 */
+    #progress-bar-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: rgba(226, 223, 214, 0.6);
+      z-index: 1000;
+    }
+    #progress-bar {
+      height: 100%;
+      width: 12.5%;
+      background: var(--accent-terracotta);
+      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* 頂部資訊列 */
+    header.slide-header {
+      position: fixed;
+      top: 4px;
+      left: 0;
+      width: 100%;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      background: rgba(248, 247, 244, 0.94);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--card-border);
+      z-index: 900;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .badge-tag {
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 4px;
+      background: var(--accent-terracotta-light);
+      color: var(--accent-terracotta);
+      border: 1px solid rgba(168, 87, 81, 0.25);
+    }
+
+    .header-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .nav-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+    .nav-btn:hover {
+      background: var(--accent-terracotta-light);
+      border-color: var(--accent-terracotta);
+      color: var(--accent-terracotta);
+    }
+    .nav-btn.active {
+      background: var(--accent-terracotta);
+      color: #FFF;
+      border-color: var(--accent-terracotta);
+    }
+
+    /* 投影片主容器視窗 */
+    #slide-viewport {
+      position: relative;
+      width: 100vw;
+      height: calc(100vh - 56px - 50px);
+      margin-top: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .slide-page {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      padding: 30px 54px 40px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(16px);
+      transition: opacity 0.35s ease, transform 0.35s ease;
+      overflow-y: auto;
+    }
+
+    .slide-page.active {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+
+    /* 標題區域規範：無紅色英文分類標籤 */
+    .slide-heading-group {
+      margin-bottom: 22px;
+    }
+    .slide-title {
+      font-size: 2.35rem;
+      font-weight: 800;
+      color: var(--heading-color);
+      line-height: 1.25;
+      letter-spacing: -0.5px;
+    }
+    .slide-subtitle {
+      font-size: 1.15rem;
+      color: var(--text-muted);
+      margin-top: 6px;
+      line-height: 1.5;
+    }
+
+    /* 專屬 Slide 6: 統計大數字看板 (Dashboard Banner) */
+    .dashboard-banner {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      margin-bottom: 20px;
+      width: 100%;
+    }
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 16px 22px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.02);
+      display: flex;
+      flex-direction: column;
+      border-left: 5px solid var(--accent-terracotta);
+    }
+    .stat-number {
+      font-size: 2.1rem;
+      font-weight: 800;
+      color: var(--accent-terracotta);
+      line-height: 1.1;
+      font-family: var(--font-mono);
+      margin-bottom: 4px;
+    }
+    .stat-label {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--heading-color);
+    }
+    .stat-desc {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+
+    /* 專屬 Slide 4: 水平演算法流水線 (Pipeline) */
+    .pipeline-container {
+      display: flex;
+      align-items: stretch;
+      gap: 18px;
+      width: 100%;
+      margin-top: 6px;
+    }
+    .pipeline-step {
+      flex: 1;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 24px 22px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.03);
+    }
+    .step-badge {
+      align-self: flex-start;
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 4px;
+      margin-bottom: 14px;
+    }
+
+    /* 版面網格配置 */
+    .grid-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      width: 100%;
+    }
+    .grid-3col {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 20px;
+      width: 100%;
+    }
+
+    /* 卡片設計規範：統一純白底色，邊框、圖示與列表圓點嚴格同色化 */
+    .m-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 26px 28px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .m-card:hover {
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+    }
+
+    /* 磚紅色系 (Terracotta) */
+    .m-card.featured {
+      border-top: 5px solid var(--accent-terracotta);
+    }
+    .m-card.featured .card-title .icon-indicator {
+      background: var(--accent-terracotta);
+    }
+    .m-card.featured ul.bullet-list li::before {
+      color: var(--accent-terracotta);
+    }
+
+    /* 灰藍色系 (Slate) */
+    .m-card.slate {
+      border-top: 5px solid var(--accent-slate);
+    }
+    .m-card.slate .card-title .icon-indicator {
+      background: var(--accent-slate);
+    }
+    .m-card.slate ul.bullet-list li::before {
+      color: var(--accent-slate);
+    }
+
+    /* 鼠尾草綠色系 (Sage) */
+    .m-card.sage {
+      border-top: 5px solid var(--accent-sage);
+    }
+    .m-card.sage .card-title .icon-indicator {
+      background: var(--accent-sage);
+    }
+    .m-card.sage ul.bullet-list li::before {
+      color: var(--accent-sage);
+    }
+
+    /* 陶土黃色系 (Ochre) */
+    .m-card.ochre {
+      border-top: 5px solid var(--accent-ochre);
+    }
+    .m-card.ochre .card-title .icon-indicator {
+      background: var(--accent-ochre);
+    }
+    .m-card.ochre ul.bullet-list li::before {
+      color: var(--accent-ochre);
+    }
+
+    .card-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--heading-color);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card-title .icon-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    p.content-text {
+      font-size: 1.05rem;
+      line-height: 1.7;
+      color: var(--text-main);
+      margin-bottom: 12px;
+    }
+
+    ul.bullet-list {
+      list-style: none;
+      padding-left: 0;
+    }
+    ul.bullet-list li {
+      position: relative;
+      padding-left: 24px;
+      font-size: 1.05rem;
+      line-height: 1.75;
+      margin-bottom: 12px;
+      color: var(--text-main);
+    }
+    ul.bullet-list li::before {
+      content: "•";
+      position: absolute;
+      left: 6px;
+      font-weight: 900;
+      font-size: 1.3rem;
+      top: -2px;
+    }
+
+    /* 數學公式優雅展示框 */
+    .formula-box {
+      background: var(--math-bg);
+      border-left: 5px solid var(--accent-terracotta);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 14px 0;
+      text-align: center;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.03);
+    }
+    .formula-caption {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      margin-top: 8px;
+      font-style: italic;
+      text-align: left;
+      line-height: 1.5;
+    }
+
+    /* 數據比較表格 */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 0.98rem;
+    }
+    .data-table th, .data-table td {
+      padding: 11px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .data-table th {
+      background: var(--bg-color);
+      color: var(--heading-color);
+      font-weight: 700;
+    }
+    .data-table tr:hover {
+      background: rgba(247, 239, 239, 0.45);
+    }
+    .highlight-cell {
+      color: var(--accent-terracotta);
+      font-weight: 800;
+    }
+
+    /* 底部控制列與右下角按鈕群組 */
+    footer.slide-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      background: rgba(248, 247, 244, 0.96);
+      border-top: 1px solid var(--card-border);
+      font-size: 0.86rem;
+      color: var(--text-muted);
+      z-index: 900;
+    }
+
+    .footer-hints {
+      display: flex;
+      gap: 18px;
+      align-items: center;
+    }
+    .kbd-shortcut {
+      background: #EAE6DC;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-main);
+      border: 1px solid #D8D3C4;
+    }
+
+    /* 右下角控制按鈕群 (首頁、上一頁、頁碼、下一頁) */
+    .footer-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .icon-ctrl-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      width: 34px;
+      height: 34px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+    .icon-ctrl-btn:hover {
+      background: var(--accent-terracotta-light);
+      border-color: var(--accent-terracotta);
+      color: var(--accent-terracotta);
+      transform: translateY(-1px);
+    }
+    .slide-page-badge {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--heading-color);
+      padding: 0 10px;
+    }
+
+    /* 深度研讀筆記抽屜 (Study Notes Drawer) - 徹底隱藏與平滑升起 */
+    #notes-drawer {
+      position: fixed;
+      bottom: 50px;
+      left: 0;
+      width: 100%;
+      height: 56vh;
+      background: var(--notes-bg);
+      color: var(--notes-text);
+      border-top: 3px solid var(--accent-terracotta);
+      box-shadow: 0 -12px 36px rgba(0, 0, 0, 0.4);
+      transform: translateY(120%);
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+      z-index: 950;
+      display: flex;
+      flex-direction: column;
+    }
+    #notes-drawer.open {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .notes-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 32px;
+      background: rgba(0, 0, 0, 0.35);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .notes-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #FFF;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .notes-close-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #D1D5DB;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, color 0.2s;
+    }
+    .notes-close-btn:hover {
+      background: var(--accent-terracotta);
+      color: #FFF;
+      border-color: var(--accent-terracotta);
+    }
+
+    .notes-body {
+      padding: 22px 36px 36px;
+      overflow-y: auto;
+      font-size: 0.98rem;
+      line-height: 1.7;
+    }
+    .notes-card-section {
+      background: var(--notes-card);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-bottom: 16px;
+    }
+    .notes-card-section h4 {
+      color: #FFA59E;
+      font-size: 1.05rem;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .notes-card-section p, .notes-card-section li {
+      color: #D6D9E0;
+      font-size: 0.96rem;
+      line-height: 1.7;
+      margin-bottom: 8px;
+    }
+    .notes-card-section ul {
+      padding-left: 20px;
+    }
+    .wiki-tag {
+      display: inline-block;
+      background: rgba(168, 87, 81, 0.35);
+      color: #FFB3AD;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      margin-bottom: 12px;
+      font-family: var(--font-mono);
+      border: 1px solid rgba(168, 87, 81, 0.4);
+    }
+
+    /* 章節導覽 Modal */
+    #toc-modal {
+      position: fixed;
+      top: 60px;
+      right: 32px;
+      width: 300px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+      padding: 16px;
+      display: none;
+      z-index: 1001;
+    }
+    #toc-modal.open {
+      display: block;
+    }
+    .toc-title {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--heading-color);
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .toc-item {
+      padding: 9px 12px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      color: var(--text-main);
+      transition: background 0.15s;
+      margin-bottom: 4px;
+    }
+    .toc-item:hover {
+      background: var(--accent-terracotta-light);
+      color: var(--accent-terracotta);
+    }
+    .toc-item.active {
+      background: var(--accent-terracotta);
+      color: #FFF;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 頂部進度條 -->
+  <div id="progress-bar-container">
+    <div id="progress-bar"></div>
+  </div>
+
+  <!-- 頂部資訊列 -->
+    <header class="slide-header">
+    <div class="header-left">
+      <span class="badge-tag">Front. Bioeng. 2026 文獻簡報</span>
+      <span class="header-title">閉環神經復健：振動觸覺感覺回饋與皮質重塑之系統性綜述</span>
+    </div>
+    <div class="header-right">
+            <a class="nav-btn" href="../index.html" title="返回總覽首頁">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        首頁
+      </a>
+<button class="nav-btn" id="btn-toc" onclick="toggleToc()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h7"/></svg>
+        章節導覽
+      </button>
+      <button class="nav-btn" id="btn-notes" onclick="toggleNotes()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        筆記模式 <span class="kbd-shortcut">N</span>
+      </button>
+      <button class="nav-btn" id="btn-fullscreen" onclick="toggleFullscreen()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+        全螢幕 <span class="kbd-shortcut">F</span>
+      </button>
+    </div>
+  </header>
+  <div id="toc-modal">
+    <div class="toc-title">簡報章節索引 (8 頁)</div>
+    <div class="toc-item active" onclick="goToSlide(0)">01 封面與研究概論</div>
+    <div class="toc-item" onclick="goToSlide(1)">02 臨床背景：感覺缺陷與開環困局</div>
+    <div class="toc-item" onclick="goToSlide(2)">03 PRISMA 方法學：文獻檢索與 35 項實證</div>
+    <div class="toc-item" onclick="goToSlide(3)">04 六大技術範式：直接刺激至 BCI 整合</div>
+    <div class="toc-item" onclick="goToSlide(4)">05 神經生物學機理：S1-M1 感覺重塑與 LTP</div>
+    <div class="toc-item" onclick="goToSlide(5)">06 臨床實證成效：FMA 評分與痙攣緩解</div>
+    <div class="toc-item" onclick="goToSlide(6)">07 臨床可用性、安全性與當前文獻局限</div>
+    <div class="toc-item" onclick="goToSlide(7)">08 核心總結與智慧義肢雙向閉環展望</div>
+  </div>
+  <main id="slide-viewport">
+
+    <!-- Slide 1: 封面 -->
+    <section class="slide-page active" id="slide-0">
+      <div class="slide-heading-group">
+        <h1 class="slide-title">Vibrotactile Stimulation for Upper-Limb Neurorehabilitation and Sensorimotor Training: A Systematic Review of Clinical and Mechanistic Evidence</h1>
+        <p class="slide-subtitle">上肢神經復健與感覺運動訓練中振動觸覺刺激 (VTS) 之臨床與機制實證：PRISMA 系統性文獻回顧</p>
+      </div>
+      <div class="grid-2col" style="margin-top: 10px;">
+        <div class="m-card featured">
+          <div class="card-title"><span class="icon-indicator"></span>論文文獻基本資訊 (Paper Overview)</div>
+          <ul class="bullet-list">
+            <li><strong>文獻出處:</strong> <em>Frontiers in Bioengineering and Biotechnology</em>, 2026, 14:1892452.</li>
+            <li><strong>作者團隊:</strong> Wenbin Zhang, Kai Leng Catherine Chan, Hong Zeng, Baoguo Xu, Hexuan Hu, Minmin Miao, Aiguo Song, Ying Shen (河海大學、南京醫科大學第一附屬醫院、東南大學生物科學與醫學工程學院).</li>
+            <li><strong>研究範疇:</strong> 振動觸覺刺激 (VTS)、神經復健 (Neurorehabilitation)、腦卒中 (Stroke)、感覺-運動閉環、腦機介面 (BCI)、神經可塑性 (Neuroplasticity).</li>
+            <li><strong>核心宗旨:</strong> 依循 PRISMA 2020 規範，系統性統整 35 項國內外前沿研究，全面揭示振動觸覺回饋促進上肢感覺運動重塑的臨床療效與神經生理機轉。</li>
+          </ul>
+        </div>
+        <div class="m-card slate">
+          <div class="card-title"><span class="icon-indicator"></span>三大研究核心與突破 (Core Contributions)</div>
+          <ul class="bullet-list">
+            <li><strong>閉環拼圖補齊 (Closed-Loop Paradigm):</strong> 終結智慧假手與神經復健「重運動輸出、輕感覺輸入」的失衡現狀，確立感覺回饋對運動再學習的關鍵驅動地位。</li>
+            <li><strong>35 項研究全景架構:</strong> 涵蓋 14 項直接上肢刺激、6 項機器人整合、7 項 BCI 典範、4 項多模態、2 項 VR 與 2 項鏡像回饋 (MVF)。</li>
+            <li><strong>機制與臨床實證貫通:</strong> 闡明體感皮質 (S1) 活化傳入調控運動皮質 (M1) 感覺運動節律 (mu/beta ERD)，帶來 FMA-UE 分數與痙攣的客觀改善。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 2: 臨床背景與問題意識 -->
+    <section class="slide-page" id="slide-1">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">臨床背景：上肢感覺回饋缺失與「開環控制」死穴</h2>
+        <p class="slide-subtitle">為什麼失去感覺回饋的智慧義肢與中風復健，會導致患者嚴重的認知疲勞與肢體棄用？</p>
+      </div>
+      <div class="grid-2col">
+        <div class="m-card featured">
+          <div class="card-title"><span class="icon-indicator"></span>傳統肌電義肢的「開環困局 (Open-Loop Syndrome)」</div>
+          <ul class="bullet-list">
+            <li><strong>純前饋單向傳導:</strong> 患者靠殘肢肌電發出抓握指令，但假手抓住物體時，患者完全無法感知物體表面質地、硬度與握力大小。</li>
+            <li><strong>極度依賴視覺代償:</strong> 使用者必須時時刻刻用眼睛盯著機械假手，一旦視線移開，物體便被捏碎或脫落，造成極度認知疲勞。</li>
+            <li><strong>高達 50% 的棄用率:</strong> 缺乏「身心一體」的本體感覺回饋，導致截肢者長期將義肢視為冰冷的異物工具，最終永久棄用。</li>
+          </ul>
+        </div>
+        <div class="m-card slate">
+          <div class="card-title"><span class="icon-indicator"></span>中風後感覺運動整合阻斷</div>
+          <ul class="bullet-list">
+            <li><strong>感覺-運動孿生關係:</strong> 正常人每一次運動輸出都依賴周圍感覺神經的不斷傳入校準；中風患者高達 60% 伴隨軀體感覺受損。</li>
+            <li><strong>習得性廢用 (Learned Non-use):</strong> 由於患肢缺乏感覺回饋，大腦逐步抑制對患肢的運動神經輸出，造成運動皮質代表區持續萎縮。</li>
+            <li><strong>振動觸覺刺激 (VTS) 破局:</strong> 透過非侵入性物理振動直接刺激皮膚機械受器，重新點亮感覺神經通路！</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 3: PRISMA 方法學與文獻篩選流程 -->
+    <section class="slide-page" id="slide-2">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">PRISMA 方法學：系統性文獻篩選與 35 項實證納入</h2>
+        <p class="slide-subtitle">依循國際 PRISMA 2020 規範與 OSF 註冊標準之全流程文獻檢索與質量評估</p>
+      </div>
+      <div class="pipeline-container">
+        <div class="pipeline-step">
+          <div class="step-badge">檢索範圍</div>
+          <div class="step-title">四大國際資料庫</div>
+          <p class="step-desc">檢索 PubMed, PEDro, Web of Science 與 Google Scholar，鎖定 2015 至 2026 年出版之英文全文文獻。</p>
+        </div>
+        <div class="pipeline-step">
+          <div class="step-badge">文獻篩查</div>
+          <div class="step-title">264 篇初檢 ➔ 35 篇納入</div>
+          <p class="step-desc">初檢 264 篇紀錄，去重後 118 篇通過標題摘要篩選，經全文獨立雙盲審查，最終納入 35 項符合標準研究。</p>
+        </div>
+        <div class="pipeline-step">
+          <div class="step-badge">提取維度</div>
+          <div class="step-title">多維參數提取矩陣</div>
+          <p class="step-desc">詳細提取受試者特徵、刺激部位、致動器類型、震動頻率/強度、閉環回饋架構與臨床療效指標。</p>
+        </div>
+      </div>
+      <div class="grid-2col" style="margin-top: 20px;">
+        <div class="m-card featured">
+          <div class="card-title"><span class="icon-indicator"></span>納入與排除核心標準</div>
+          <ul class="bullet-list">
+            <li><strong>納入標準:</strong> 針對腦卒中偏癱患者或健康對照之上肢神經復健研究；採用客觀振動觸覺 (VTS) 作為獨立或輔助介入手段。</li>
+            <li><strong>排除標準:</strong> 全身性震動 (WBV) 平台研究；純動物實驗；缺乏明確客觀運動或神經生理指標之非同行評審文獻。</li>
+          </ul>
+        </div>
+        <div class="m-card ochre">
+          <div class="card-title"><span class="icon-indicator"></span>OSF 預先註冊與偏倚風險控制</div>
+          <ul class="bullet-list">
+            <li><strong>透明度保證:</strong> 研究回顧協議回溯註冊於 Open Science Framework (OSF)，確保研究流程公開可重複。</li>
+            <li><strong>雙人獨立評估:</strong> 由兩位研究人員分別使用 PEDro 量表或 Cochrane 偏倚風險工具評估納入試驗質量。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 4: 六大應用技術範式分類 -->
+    <section class="slide-page" id="slide-3">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">技術範式：振動觸覺刺激 (VTS) 的六大應用維度</h2>
+        <p class="slide-subtitle">從直接經皮刺激、外骨骼機器人協同到腦機介面 (BCI) 之多元技術分佈</p>
+      </div>
+      <div class="m-card ochre" style="margin-bottom: 20px; padding: 18px 24px;">
+        <div class="card-title" style="margin-bottom: 8px;"><span class="icon-indicator"></span>致動器技術分類 (Actuator Technologies)</div>
+        <p class="content-text" style="margin-bottom: 0;">目前主流採用<strong>線性諧振致動器 (LRA)</strong>（精準頻率與振幅獨立控制）與<strong>偏心旋轉質量馬達 (ERM)</strong>（低成本、強振動），輔以音圈致動器 (Voice-Coil) 提供微秒級高保真觸覺波形。</p>
+      </div>
+      <div class="grid-3col">
+        <div class="m-card featured">
+          <div class="card-title"><span class="icon-indicator"></span>1. 直接上肢刺激 (14 項)</div>
+          <p class="content-text">以穿戴式手環、指套直接貼附於手腕、手指指腹或前臂，在病患執行抓握任務時施加持續或脈衝振動，活化局部皮膚感受器。</p>
+        </div>
+        <div class="m-card slate">
+          <div class="card-title"><span class="icon-indicator"></span>2. 機器人與 BCI 整合 (13 項)</div>
+          <p class="content-text"><strong>外骨骼機器人 (6 項):</strong> 震動與被動牽引同步；<strong>腦機介面 (7 項):</strong> 運動想像 (MI) 誘發腦電 mu 律動時，即時給予振動觸覺獎勵確認。</p>
+        </div>
+        <div class="m-card sage">
+          <div class="card-title"><span class="icon-indicator"></span>3. 虛擬實境與多模態 (8 項)</div>
+          <p class="content-text"><strong>多模態整合 (4 項)</strong> 結合電刺激與聲音；<strong>VR / 鏡像 (4 項)</strong> 虛擬抓取物體時賦予即時觸覺碰撞感，強化視觸覺跨通道神經重塑。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 5: 神經生理學機制與皮質重塑 -->
+    <section class="slide-page" id="slide-4">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">神經機理：S1-M1 感覺運動皮質重塑與長時程增強</h2>
+        <p class="slide-subtitle">外周皮膚機械受體傳入如何在大腦中樞喚醒受損運動皮質？</p>
+      </div>
+      <div class="grid-2col">
+        <div class="m-card featured">
+          <div class="card-title"><span class="icon-indicator"></span>外周感受器激活與向心傳導</div>
+          <ul class="bullet-list">
+            <li><strong>巴齊尼氏小體 (Pacinian Corpuscle):</strong> 感受 100–300 Hz 高頻微振動，具備極快適應性 (FA II)，對應觸覺質地與瞬態微震。</li>
+            <li><strong>邁斯納氏小體 (Meissner's Corpuscle):</strong> 感受 20–50 Hz 低頻顫動 (FA I)，精確感知物體抓握邊緣滑動。</li>
+            <li><strong>背柱-內側丘系通路:</strong> 傳入脈衝經脊髓後索、延髓薄束/楔束核交叉，精準投射至對側大腦初級體感皮質 (S1)。</li>
+          </ul>
+        </div>
+        <div class="m-card slate">
+          <div class="card-title"><span class="icon-indicator"></span>中樞皮質可塑性與長時程增強 (LTP)</div>
+          <ul class="bullet-list">
+            <li><strong>S1 與 M1 密集成對投射:</strong> S1 的強烈感覺傳入訊號，透過皮質內水平軸突直接興奮相鄰初級運動皮質 (M1) 的錐體神經元。</li>
+            <li><strong>感覺運動節律調控:</strong> 腦電圖 (EEG) 證實 VTS 顯著加深對側感覺運動區 $\mu$ (8–12 Hz) 與 $\beta$ (13–30 Hz) 頻帶的事件相關去同步化 (ERD)，提高大腦皮質興奮度。</li>
+            <li><strong>突觸長時程增強 (LTP-like Plasticity):</strong> 感覺輸入與患者主動發力同時發生時，觸發 Hebbian 學習規則，加速受損神經元突觸再生！</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 6: 臨床成效大數字看板與指標對照 -->
+    <section class="slide-page" id="slide-5">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">臨床實證：上肢運動功能改善與痙攣顯著緩解</h2>
+        <p class="slide-subtitle">35 項實證薈萃：FMA-UE 運動評分提升、MAS 痙攣減輕與本體感覺恢復</p>
+      </div>
+      <div class="dashboard-banner">
+        <div class="stat-card">
+          <div class="stat-number">35 Studies</div>
+          <div class="stat-label">系統性回顧文獻總量</div>
+          <div class="stat-desc">涵蓋 2015–2026 年國際頂級期刊之臨床試驗與機制實證</div>
+        </div>
+        <div class="stat-card" style="border-left-color: var(--accent-slate);">
+          <div class="stat-number" style="color:var(--accent-slate);">FMA-UE &uarr;</div>
+          <div class="stat-label">運動功能評分顯著提升</div>
+          <div class="stat-desc">Fugl-Meyer 上肢總分超越最小臨床重要差異值 (MCID)</div>
+        </div>
+        <div class="stat-card" style="border-left-color: var(--accent-sage);">
+          <div class="stat-number" style="color:var(--accent-sage);">Closed-Loop</div>
+          <div class="stat-label">雙向感覺-動作閉環</div>
+          <div class="stat-desc">突破開環義肢局限，重建自然的神經閉環人機交互</div>
+        </div>
+      </div>
+      <div class="m-card" style="padding: 16px 20px;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>臨床療效指標</th>
+              <th>常用評估量表 / 工具</th>
+              <th>VTS 介入典型臨床改善效果</th>
+              <th>統計檢驗與臨床意義</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>上肢粗大與精細運動</strong></td>
+              <td>FMA-UE, ARAT, Box &amp; Block</td>
+              <td>肩肘腕關節靈活性增強，握拳與放開速度顯著提升</td>
+              <td>多項 RCT 試驗報告 $p &lt; 0.05$，超越 MCID 門檻</td>
+            </tr>
+            <tr>
+              <td><strong>屈肌張力與肌肉痙攣</strong></td>
+              <td>改良 Ashworth 量表 (MAS)</td>
+              <td>高頻局部振動抑制 Ia 類傳入神經突觸前抑制，放鬆前臂痙攣</td>
+              <td>MAS 評分平均降低 0.5–1 級，顯著緩解手指過度屈曲</td>
+            </tr>
+            <tr>
+              <td><strong>本體感受與觸覺敏感</strong></td>
+              <td>兩點辨別覺、關節位置覺 (JPA)</td>
+              <td>皮膚閾值敏銳化，深部肌肉本體感覺與空間定向顯著修復</td>
+              <td>感覺傳入刺激促使大腦 S1 皮質感覺代表區擴大重組</td>
+            </tr>
+            <tr>
+              <td><strong>患肢主動日常使用率</strong></td>
+              <td>運動活動日誌 (MAL)</td>
+              <td>克服中風患者「習得性廢用」，患肢日常自發使用頻率激增</td>
+              <td>MAL 評分顯著提高，生活自理能力顯著改善</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Slide 7: 臨床可用性、安全性與當前限制 -->
+    <section class="slide-page" id="slide-6">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">臨床轉化：高安全性、優異可用性與文獻現存局限</h2>
+        <p class="slide-subtitle">客觀審查 35 項研究之臨床可行性，正視樣本異質性與未來改進空間</p>
+      </div>
+      <div class="grid-2col">
+        <div class="m-card featured">
+          <div class="card-title"><span class="icon-indicator"></span>優良可用性與極高安全性驗證</div>
+          <ul class="bullet-list">
+            <li><strong>極高患者接受度 (Usability):</strong> 穿戴式振動裝置（手環、指套）小巧輕量，患者在家庭與醫院自評滿意度評分超過 85%。</li>
+            <li><strong>零嚴重不良事件 (Zero Serious AE):</strong> 納入研究中無任何皮膚破損、嚴重麻木或過敏報告，相比侵入性神經電刺激具備壓倒性安全優勢。</li>
+          </ul>
+        </div>
+        <div class="m-card ochre">
+          <div class="card-title"><span class="icon-indicator"></span>當前文獻之核心局限性 (Limitations)</div>
+          <ul class="bullet-list">
+            <li><strong>刺激協議高度異質 (Protocol Heterogeneity):</strong> 各研究所採用的振動頻率（從 20 Hz 到 250 Hz）、佔空比、刺激時長（5 分鐘至 60 分鐘）差異巨大，缺乏統一的國際「臨床劑量標準」。</li>
+            <li><strong>多模態混淆效應 (Confounding Effects):</strong> 部分試驗將 VTS 與外骨骼機器人或 VR 同步施加，難以百分之百單獨剝離出振動回饋的純貢獻率。</li>
+            <li><strong>樣本規模普遍偏小:</strong> 現有研究多為單中心小樣本 Pilot 試驗，急需大規模多中心雙盲隨機對照試驗 (RCT)。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 8: 核心總結與智慧義肢雙向閉環展望 -->
+    <section class="slide-page" id="slide-7">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">結論與未來展望：邁向智慧義肢雙向「身心閉環」</h2>
+        <p class="slide-subtitle">將前臂肌電意圖解碼 (Motor Out) 與振動觸覺反饋 (Sensory In) 完美融合的終極藍圖</p>
+      </div>
+      <div class="grid-3col">
+        <div class="m-card featured">
+          <div class="card-title"><span class="icon-indicator"></span>1. 系統性實證奠基</div>
+          <p class="content-text">以 PRISMA 標準嚴格篩選 35 項研究，證實振動觸覺刺激對中風上肢運動、痙攣與皮質重塑的卓越臨床價值。</p>
+        </div>
+        <div class="m-card slate">
+          <div class="card-title"><span class="icon-indicator"></span>2. 劑量標準化呼籲</div>
+          <p class="content-text">指明未來必須建立標準化刺激頻率（如巴齊尼體 200 Hz 最適頻段）與基於 EEG 即時響應的自適應閉環調控。</p>
+        </div>
+        <div class="m-card sage">
+          <div class="card-title"><span class="icon-indicator"></span>3. 智慧假手終極閉環</div>
+          <p class="content-text">假手壓力傳感器 ➔ 微型 LRA 振動編碼 ➔ 截肢者殘肢皮膚 ➔ 大腦感知握力並即時微調肌電！徹底終結開環棄用死穴！</p>
+        </div>
+      </div>
+      <div class="m-card" style="margin-top:22px; background:var(--accent-terracotta-light); border:1px solid rgba(168, 87, 81, 0.35);">
+        <p class="content-text" style="margin-bottom:0; font-weight:700; color:var(--accent-terracotta); text-align:center; font-size:1.15rem;">
+          ★ 「唯有當機械肢體能夠將觸覺感知傳遞回人類大腦，假手才不再是一具外在工具，而真正重生為人體有生命的血肉延伸。」
+        </p>
+      </div>
+    </section>
+
+  </main>
+<footer class="slide-footer">
+    <div class="footer-hints">
+      <span>鍵盤快捷鍵：<span class="kbd-shortcut">←</span> <span class="kbd-shortcut">→</span> 切頁</span>
+      <span>筆記：<span class="kbd-shortcut">N</span></span>
+      <span>全螢幕：<span class="kbd-shortcut">F</span></span>
+    </div>
+    <div class="footer-controls">
+      <!-- 回到論文首頁按鈕 (房子圖示) -->
+      <button class="icon-ctrl-btn" onclick="goToSlide(0)" title="返回第一頁">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      </button>
+      <!-- 上一頁按鈕 (左箭頭) -->
+      <button class="icon-ctrl-btn" onclick="prevSlide()" title="上一頁 (←)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <!-- 頁碼標籤 -->
+      <div class="slide-page-badge" id="slide-indicator">01 / 08</div>
+      <!-- 下一頁按鈕 (右箭頭) -->
+      <button class="icon-ctrl-btn" onclick="nextSlide()" title="下一頁 (→)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+  </footer>
+
+  <!-- 深度研讀筆記抽屜 (Study Notes Drawer) -->
+  <div id="notes-drawer">
+    <div class="notes-header">
+      <div class="notes-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <span>深度研讀筆記與複習手冊</span>
+      </div>
+      <button class="notes-close-btn" onclick="toggleNotes()" title="關閉筆記 (Esc)">✕</button>
+    </div>
+    <div class="notes-body" id="notes-content">
+      <!-- 內容由 JavaScript 動態載入當前頁的深度複習資料 -->
+    </div>
+  </div>
+
+  <!-- JavaScript 投影片控制器 -->
+    <script>
+    const slideNotes = [
+  {
+    "wiki": "wiki/papers/zhang2026_vibrotactile_neurorehabilitation_review.md",
+    "title": "Slide 1 深度研讀筆記：論文背景、文獻定位與跨學科作者團隊全景",
+    "sections": [
+      {
+        "heading": "📖 論文核心摘要與文獻定位",
+        "content": "<p><strong>論文名稱：</strong>Vibrotactile stimulation for upper-limb neurorehabilitation and sensorimotor training: a systematic review of clinical and mechanistic evidence<br><strong>發表期刊：</strong><em>Frontiers in Bioengineering and Biotechnology</em>, 2026, 14:1892452.<br><strong>作者團隊：</strong>Wenbin Zhang, Kai Leng Catherine Chan, Hong Zeng, Baoguo Xu, Hexuan Hu, Minmin Miao, Aiguo Song, Ying Shen，來自河海大學計算機與軟體工程學院、南京醫科大學第一附屬醫院康復醫學科，以及東南大學儀器科學與工程學院生物醫學工程國家重點實驗室。<br><strong>研究定位：</strong>針對長期以來上肢神經復健與智慧義肢控制「重運動輸出、輕感覺輸入」導致的開環失衡問題，依據 PRISMA 2020 國際規範，對近十年來振動觸覺刺激 (VTS) 在腦中風上肢康復中的臨床實證與神經生物學機制進行了目前最全面的系統性綜述。</p>"
+      },
+      {
+        "heading": "🔬 感覺回饋在人機介面中的關鍵地位",
+        "content": "<ul><li><strong>開環控制的弊端：</strong>截肢者使用商業肌電假手或中風偏癱患者執行康復訓練時，由於缺乏本體觸覺感知，大腦無法建立預測性內部運動模型 (Internal Forward Models)，必須依賴低帶寬、高延遲的視覺代償，極易導致大腦皮質運動區功能退化。</li><li><strong>振動觸覺刺激 (VTS) 的獨特優勢：</strong>相比侵入性神經電極植入或易引起疼痛的經皮電刺激 (TENS)，微型振動致動器體積小、功耗低、完全無創且具備優異的時間與頻率動態調製能力，是最理想的非侵入性觸覺回饋介質。</li></ul>"
+      },
+      {
+        "heading": "💡 與前臂肌電解碼主題的閉環契合",
+        "content": "<p>本篇文獻是我們「前臂表面肌電訊號解碼與神經復健」知識庫的集大成者與收官之作。Kumar (2013) 解決了意圖解碼的單通道抗位移，Fukunaga (2023) 揭示了屈肌群生理選擇性，Yao (2020) 驗證了外在物理負載的肌電干擾，Yang (2026) 實現了多模態手勢辨識，而 Zhang (2026) 則從感覺傳入端徹底補齊了「意圖解碼 ➔ 機械運動 ➔ 觸覺回饋 ➔ 大腦感知」的雙向身心閉環！</p>"
+      }
+    ]
+  },
+  {
+    "wiki": "wiki/papers/zhang2026_vibrotactile_neurorehabilitation_review.md",
+    "title": "Slide 2 深度研讀筆記：上肢感覺回饋缺失、視覺代償與開環控制死穴",
+    "sections": [
+      {
+        "heading": "📖 假手臨床棄用背後的神經生物學根源",
+        "content": "<p>臨床統計表明，高達 30%~50% 的先進仿生肌電手在購買後數月內被截肢者永久棄置於抽屜中。除了電極滑移之外，最根本的抱怨是<strong>「缺乏感覺回饋 (Lack of Somatosensory Feedback)」</strong>：<br>1. <strong>認知超載 (Cognitive Overload)：</strong>正常人抓握雞蛋或紙杯全憑指尖壓覺微調力道；而開環假手使用者必須全神貫注用眼睛盯著機械手指的形變，大腦視覺皮質持續高度緊張；<br>2. <strong>本體感覺喪失 (Proprioception Deficit)：</strong>在黑暗中、開車時或視線受阻時，使用者根本不知道假手是張開還是合攏，毫無安全感；<br>3. <strong>假肢非體現感 (Embodiment Failure)：</strong>缺乏觸覺輸入，大腦無法將機械手納入「身體圖式 (Body Schema)」，假肢永遠只是一個冷冰冰的外部工具。</p>"
+      },
+      {
+        "heading": "🔬 腦卒中感覺運動整合解耦機制",
+        "content": "<p>在中風偏癱患者中，感覺皮質 (S1) 與運動皮質 (M1) 之間的雙向互惠投射被病灶切斷：<br>• 高達 60% 的患者伴有偏側感覺障礙，無法感知關節空間位置；<br>• 大腦在長期得不到外周動作反饋的情況下，會自發產生「習得性廢用 (Learned Non-use)」，進一步加劇運動皮質萎縮。<br>透過 VTS 外周振動刺激，能夠強制啟動感覺神經傳入，打破神經萎縮的惡性循環！</p>"
+      },
+      {
+        "heading": "💡 上台報告提點",
+        "content": "<p>向評審強調：沒有感覺回饋的肌電義肢，就像矇著眼睛、戴著厚手套開車，控制精度必然受限；感覺閉環是下一代神經義肢的靈魂！</p>"
+      }
+    ]
+  },
+  {
+    "wiki": "wiki/papers/zhang2026_vibrotactile_neurorehabilitation_review.md",
+    "title": "Slide 3 深度研讀筆記：PRISMA 2020 規範、文獻檢索策略與 35 項研究納入",
+    "sections": [
+      {
+        "heading": "📖 PRISMA 2020 系統性回顧標準與 OSF 註冊",
+        "content": "<p>本篇文獻嚴格依據 PRISMA (Preferred Reporting Items for Systematic Reviews and Meta-Analyses) 2020 準則開展，並在 Open Science Framework (OSF) 進行了公開研究方案註冊：<br>• <strong>檢索資料庫：</strong>PubMed, PEDro, Web of Science, Google Scholar；<br>• <strong>檢索關鍵字組合：</strong>('stroke' OR 'upper limb' OR 'hand') AND ('vibrotactile' OR 'vibration' OR 'tactile' OR 'somatosensory' OR 'haptic') AND ('neurorehabilitation' OR 'motor training' OR 'BCI')；<br>• <strong>出版時間跨度：</strong>2015 年 1 月至 2026 年 1 月。</p>"
+      },
+      {
+        "heading": "🔬 篩選全流程與 35 項研究終審結果",
+        "content": "<p>1. <strong>初檢階段：</strong>自各大數據庫檢索獲得 <strong>264 篇</strong> 原始文獻紀錄；<br>2. <strong>去重與初篩：</strong>自動去重後剩餘 <strong>118 篇</strong>，由兩位審稿人獨立進行標題與摘要篩查，剔除無關論文；<br>3. <strong>全文終審：</strong>對 48 篇潛在合格文獻進行全文研讀，依排除標準剔除全身震動 (WBV) 及非上肢研究，最終嚴格納入 <strong>35 項研究</strong>。<br>涵蓋了隨機對照試驗 (RCT)、前瞻性隊列研究與神經生理對照實驗。</p>"
+      },
+      {
+        "heading": "💡 質量控制嚴謹度",
+        "content": "<p>納入文獻採用 PEDro 量表（臨床試驗）與 Cochrane 偏倚風險工具進行獨立質量評級，確保所總結的臨床療效具備高度可信度。</p>"
+      }
+    ]
+  },
+  {
+    "wiki": "wiki/papers/zhang2026_vibrotactile_neurorehabilitation_review.md",
+    "title": "Slide 4 深度研讀筆記：六大技術應用範式與致動器工程物理特性",
+    "sections": [
+      {
+        "heading": "📖 35 項研究的六大應用典範分類",
+        "content": "<p>系統將 VTS 歸納為六大前沿應用架構：<br>1. <strong>直接上肢經皮刺激 (14 項)：</strong>微型致動器直接貼於手腕、手指、手掌或前臂肌腱；<br>2. <strong>腦機介面 (BCI) 閉環結合 (7 項)：</strong>在運動想像 (MI) 任務中，當腦電解碼成功時即時給予振動確認，顯著強化感覺運動節律 (SMR)；<br>3. <strong>外骨骼康復機器人整合 (6 項)：</strong>在外骨骼牽引手指開闔時同步施加相應關節震動，增強本體感受器刺激；<br>4. <strong>多模態系統 (4 項)：</strong>振動結合功能性電刺激 (FES) 或音頻同步刺激；<br>5. <strong>虛擬實境 (VR) 整合 (2 項)：</strong>在元宇宙與虛擬手部操作時提供物理碰撞觸覺反饋；<br>6. <strong>鏡像視覺反饋 (MVF, 2 項)：</strong>健側運動引導患側鏡像視覺，同時患側輔以振動喚醒。</p>"
+      },
+      {
+        "heading": "🔬 致動器硬體技術特性",
+        "content": "<p>• <strong>LRA (線性諧振致動器)：</strong>以音圈彈簧結構單向諧振振動，響應迅速 (開關時間 < 10 ms)，可獨立精確調節振動頻率與振幅，是目前高階穿戴式觸覺裝置的首選；<br>• <strong>ERM (偏心旋轉質量馬達)：</strong>偏心輪旋轉產生全向離心震動，成本極低、體積小，但頻率與振幅高度耦合（電壓增加頻率與振幅同時增大）；<br>• <strong>壓電陶瓷致動器 (Piezoelectric)：</strong>可產生超過 1000 Hz 的超寬頻微位移，用於高保真質地觸覺模擬。</p>"
+      },
+      {
+        "heading": "💡 刺激部位分佈",
+        "content": "<p>最常見刺激部位為手腕掌側 (Median nerve 投影區)、指尖 (Pacinian 密集區)、前臂屈肌腱以及大魚際肌，各部位神經投射特性互補。</p>"
+      }
+    ]
+  },
+  {
+    "wiki": "wiki/papers/zhang2026_vibrotactile_neurorehabilitation_review.md",
+    "title": "Slide 5 深度研讀筆記：S1-M1 感覺運動皮質可塑性與神經生物學機制全推導",
+    "sections": [
+      {
+        "heading": "📖 皮膚機械感受器 (Mechanoreceptors) 的頻率響應特性",
+        "content": "<p>人體手部皮膚密佈四類機械受體，VTS 主要活化其中快速適應型 (Fast Adapting, FA) 受體：<br>1. <strong>巴齊尼氏小體 (Pacinian Corpuscle, FA II)：</strong>位於皮下組織深層，受體呈洋蔥狀同心圓板層結構。對 <strong>100–300 Hz</strong>（最佳敏感點約 200–250 Hz）的高頻微振動極度敏感，其動作電位傳導速度快，專門解碼快速動態接觸與工具振動；<br>2. <strong>邁斯納氏小體 (Meissner's Corpuscle, FA I)：</strong>位於真皮乳頭層，對 <strong>20–50 Hz</strong> 的低頻顫動敏感，感知抓握邊緣的微小滑移。<br>向心傳導經由粗大的 Aβ 有髓鞘感覺神經纖維，以 30–70 m/s 的極高速度傳入脊髓。</p>"
+      },
+      {
+        "heading": "🔬 感覺運動皮質交互 (S1-M1 Crosstalk) 與腦電 ERD 調控",
+        "content": "<p>向心脈衝抵達對側初級體感皮質 (S1, 包含 Brodmann 3b, 1, 2 區) 後，透過皮質內雙向聯絡纖維引發強大的神經生理級聯反應：<br>• <strong>事件相關去同步化 (ERD)：</strong>腦電 (EEG) 監測顯示，VTS 刺激顯著加深了對側感覺運動皮質區的 <strong>$\\mu$ 律動 (8–12 Hz) 與 $\\beta$ 律動 (13–30 Hz) 的去同步化 (ERD)</strong>，這代表皮質局部神經元放電同步性解除、運動皮質興奮度大幅激增！<br>• <strong>長時程增強 (LTP-like Plasticity)：</strong>依據 Hebbian 突觸塑性理論，當 VTS 刺激的感覺輸入與患者大腦的自主運動想像/意圖在毫秒級時間窗內重合時，S1 與 M1 之間的突觸傳導效率永久性提高，加速受損運動傳導通路的側支發芽與神經重塑！</p>"
+      },
+      {
+        "heading": "💡 臨床與工程結合點",
+        "content": "<p>這為腦機介面 (BCI) 與肌電義肢設計提供了極其堅實的神經科學依據：外加觸覺回饋不是「畫蛇添足」，而是直接在大腦中樞打開了促進運動功能修復的神經調控開關！</p>"
+      }
+    ]
+  },
+  {
+    "wiki": "wiki/papers/zhang2026_vibrotactile_neurorehabilitation_review.md",
+    "title": "Slide 6 深度研讀筆記：35 項研究臨床療效數據薈萃與量表評估全景",
+    "sections": [
+      {
+        "heading": "📖 運動功能改善臨床實證數據",
+        "content": "<p>35 項研究匯總結果顯示，VTS 結合主動任務導向訓練可帶來極顯著的運動功能改善：<br>• <strong>FMA-UE 上肢總分提升：</strong>多項隨機對照試驗 (RCT) 報告，實驗組患者在接受 4–8 週 VTS 介入後，FMA-UE 評分顯著高於純傳統康復對照組 ($p < 0.05$)，平均改善幅度超越 <strong>最小臨床重要差異值 (MCID = 5.25 分)</strong>；<br>• <strong>ARAT 與 Box & Block 測試：</strong>精細抓捏能力（如抓取木塊、旋轉鑰匙）的完成時間縮短 20%–35%，抓握成功率顯著提高。</p>"
+      },
+      {
+        "heading": "🔬 痙攣緩解與本體感覺修復機制",
+        "content": "<p>• <strong>改良 Ashworth 痙攣量表 (MAS)：</strong>前臂屈肌痙攣是中風康復的巨大障礙。研究實證，針對拮抗肌或前臂施加特定高頻振動，可透過活化肌梭 Ia 類傳入神經纖維，誘導脊髓運動神經元產生<strong>突觸前抑制 (Presynaptic Inhibition)</strong>，進而有效放鬆過度痙攣的屈指淺肌 (FDS)，MAS 評分平均顯著下降 0.5 至 1 級！<br>• <strong>兩點辨別覺與關節位置覺 (JPA)：</strong>手指觸覺分辨率顯著敏銳化，盲眼狀態下手關節角度定位誤差減少 30% 以上。</p>"
+      },
+      {
+        "heading": "💡 腦機介面 (BCI) 解碼精準度倍增效應",
+        "content": "<p>在 7 項 BCI 整合研究中，引入振動觸覺即時回饋後，使用者的運動想像 (MI) 腦電訊號信噪比大幅提升，BCI 意圖分類精確率平均提升 <strong>8% 至 15%</strong>，且受試者達到穩定控制所需的訓練時間縮短近一半！</p>"
+      }
+    ]
+  },
+  {
+    "wiki": "wiki/papers/zhang2026_vibrotactile_neurorehabilitation_review.md",
+    "title": "Slide 7 深度研讀筆記：臨床可用性、安全性評估與文獻現存核心局限",
+    "sections": [
+      {
+        "heading": "📖 極高患者可用性與安全性",
+        "content": "<p>本篇綜述對所有報告可用性指標的研究進行了統計：<br>• <strong>系統可用性量表 (SUS)：</strong>受試者對穿戴式手環與指套設備的滿意度評分均在 <strong>80–90 分</strong> 之間（優秀等級）；<br>• <strong>不良事件率為零：</strong>所有 35 項研究中，未發生任何因局部微震動引起的皮膚破損、嚴重疼痛或植物神經紊亂事件，證實其具備極高的一線臨床安全性與家庭遠程康復可行性。</p>"
+      },
+      {
+        "heading": "🔬 當前國際文獻三大核心局限",
+        "content": "<p>作者客觀指出了目前該領域亟需攻克的科學瓶頸：<br>1. <strong>刺激協議極度異質 (Protocol Heterogeneity)：</strong>振動頻率五花八門（20 Hz 至 300 Hz 不等），單次持續時間從 5 分鐘到 60 分鐘，缺乏客觀量化的神經學「處方劑量效應關係 (Dose-Response)」；<br>2. <strong>多模態干擾與控制組缺失：</strong>多數研究將 VTS 與機器人輔助或虛擬實境混合使用，缺乏乾淨的「純震動對照組」來單獨量化震動的獨立貢獻率；<br>3. <strong>長期隊列隨訪不足：</strong>多數研究僅評估干預結束即刻效果，缺乏停止介入 3 個月至 6 個月後的長期神經塑性維持評估。</p>"
+      },
+      {
+        "heading": "💡 未來研究改進方向",
+        "content": "<p>呼籲國際生醫工程學界聯合開展多中心、大樣本、標準化劑量的 RCT 臨床試驗，並利用功能性近紅外光譜 (fNIRS) 或 fMRI 開展即時皮質成像監控。</p>"
+      }
+    ]
+  },
+  {
+    "wiki": "wiki/papers/zhang2026_vibrotactile_neurorehabilitation_review.md",
+    "title": "Slide 8 深度研讀筆記：雙向神經閉環智慧假手之終極未來展望",
+    "sections": [
+      {
+        "heading": "📖 智慧義肢「感覺-運動閉環」終極架構",
+        "content": "<p>基於本篇綜述的實證結論，新一代智慧仿生機械手必須實現完整的雙向神經閉環：<br>1. <strong>前向意圖解碼 (Motor Out)：</strong>利用 Kumar (2013) 的體導電理論與小波極大值 (WMD)，從殘肢單通道或少通道表面肌電中解碼手指動作意圖；<br>2. <strong>機械運動執行：</strong>驅動假手電機精確完成抓握動作；<br>3. <strong>末端力矩感測：</strong>假手受力傳感器即時採集接觸力與微滑移；<br>4. <strong>反向觸覺編碼 (Sensory In)：</strong>利用線性諧振致動器 (LRA) 以 200 Hz 震動頻率和調頻幅值即時刺激殘肢皮膚；<br>5. <strong>大腦中樞感知閉環：</strong>截肢者大腦即刻感知抓握力道，並自適應微調肌肉收縮，實現身心一體的自適應抓握！</p>"
+      },
+      {
+        "heading": "🔬 全套知識庫五篇文獻之神經工程邏輯閉環",
+        "content": "<p>• <strong>Kumar (2013):</strong> 突破硬體脆弱性，以單通道 WMD 與 TSVM 實現高精度抗位移解碼；<br>• <strong>Fukunaga (2023):</strong> 揭示前臂深淺肌群（FDS, PT, FCU）的神經運動單元選擇性招募機制；<br>• <strong>Yao (2020):</strong> 量化外在物理負載與防震介質引發的肌電能量漂移 (22%~78%)，提供抗干擾設計依據；<br>• <strong>Yang (2026):</strong> 融合 sEMG 與柔性手套運動學，實現臨床患者突破 90% 的客觀復健評估；<br>• <strong>Zhang (2026):</strong> 以非侵入性 VTS 構建雙向觸覺反饋閉環，促進皮質重塑，賦予仿生肢體生命！</p>"
+      },
+      {
+        "heading": "💡 震撼總結金句",
+        "content": "<p>「唯有當機械肢體能夠將觸覺感知傳遞回人類大腦，假手才不再是一具外在工具，而真正重生為人體有生命的血肉延伸。」感謝各位老師與同儕的深入研討！</p>"
+      }
+    ]
+  }
+];
+let currentSlide = 0;
+    const totalSlides = 8;
+    let notesOpen = false;
+    let tocOpen = false;
+
+    function updateSlide() {
+      // 切換投影片顯示
+      document.querySelectorAll('.slide-page').forEach((slide, idx) => {
+        if (idx === currentSlide) {
+          slide.classList.add('active');
+        } else {
+          slide.classList.remove('active');
+        }
+      });
+
+      // 更新進度條與頁碼
+      const progressPercent = ((currentSlide + 1) / totalSlides) * 100;
+      document.getElementById('progress-bar').style.width = progressPercent + '%';
+      document.getElementById('slide-indicator').textContent = 
+        String(currentSlide + 1).padStart(2, '0') + ' / ' + String(totalSlides).padStart(2, '0');
+
+      // 更新 TOC 清單的高亮狀態
+      document.querySelectorAll('.toc-item').forEach((item, idx) => {
+        if (idx === currentSlide) {
+          item.classList.add('active');
+        } else {
+          item.classList.remove('active');
+        }
+      });
+
+      // 更新研讀筆記內容（三段結構化深入手冊）
+      const note = slideNotes[currentSlide];
+      const notesContainer = document.getElementById('notes-content');
+      let sectionsHtml = '';
+      note.sections.forEach(sec => {
+        sectionsHtml += `
+          <div class="notes-card-section">
+            <h4>${sec.heading}</h4>
+            <div>${sec.content}</div>
+          </div>
+        `;
+      });
+
+      notesContainer.innerHTML = `
+        <span class="wiki-tag">Wiki 溯源節點：${note.wiki}</span>
+        <h3 style="color:#FFF; font-size:1.15rem; margin-bottom:12px;">${note.title}</h3>
+        ${sectionsHtml}
+      `;
+
+      // 觸發 KaTeX 渲染
+      if (window.renderMathInElement) {
+        renderMathInElement(document.getElementById('slide-viewport'), {
+          delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]
+        });
+        renderMathInElement(notesContainer, {
+          delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]
+        });
+      }
+    }
+
+    function nextSlide() {
+      if (currentSlide < totalSlides - 1) {
+        currentSlide++;
+        updateSlide();
+      }
+    }
+
+    function prevSlide() {
+      if (currentSlide > 0) {
+        currentSlide--;
+        updateSlide();
+      }
+    }
+
+    function goToSlide(idx) {
+      if (idx >= 0 && idx < totalSlides) {
+        currentSlide = idx;
+        updateSlide();
+        if (tocOpen) toggleToc();
+      }
+    }
+
+    // 筆記抽屜開關 - 徹底隱藏與展開
+    function toggleNotes() {
+      notesOpen = !notesOpen;
+      const drawer = document.getElementById('notes-drawer');
+      const btn = document.getElementById('btn-notes');
+      if (notesOpen) {
+        drawer.classList.add('open');
+        btn.classList.add('active');
+      } else {
+        drawer.classList.remove('open');
+        btn.classList.remove('active');
+      }
+    }
+
+    // 章節導覽 Modal 開關
+    function toggleToc() {
+      tocOpen = !tocOpen;
+      const modal = document.getElementById('toc-modal');
+      const btn = document.getElementById('btn-toc');
+      if (tocOpen) {
+        modal.classList.add('open');
+        btn.classList.add('active');
+      } else {
+        modal.classList.remove('open');
+        btn.classList.remove('active');
+      }
+    }
+
+    // 全螢幕切換
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+          console.warn(`Error attempting to enable full-screen mode: ${err.message}`);
+        });
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+
+    // 鍵盤導航監聽
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+        e.preventDefault();
+        nextSlide();
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        e.preventDefault();
+        prevSlide();
+      } else if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        toggleNotes();
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        toggleFullscreen();
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        goToSlide(0);
+      } else if (e.key === 'Escape') {
+        if (tocOpen) toggleToc();
+        if (notesOpen) toggleNotes();
+      }
+    });
+
+    // 初始化載入
+    window.addEventListener('DOMContentLoaded', () => {
+      updateSlide();
+    });
+  </script>
+</body>
+</html>

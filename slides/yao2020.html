@@ -1,0 +1,1283 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>單通道表面肌電訊號的手指動作辨識 — 深度教學簡報與論文研讀手冊</title>
+  
+  <!-- KaTeX 數學公式排版引擎 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" 
+          onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+
+  <style>
+    /* 莫蘭迪灰階石墨與啞光磚紅 (Graphite & Muted Terracotta) 核心色彩定義 */
+    :root {
+      --bg-color: #F8F7F4;
+      --card-bg: #FFFFFF;
+      --card-border: #E2DFD6;
+      --text-main: #343840;
+      --text-muted: #6C727D;
+      --heading-color: #20242B;
+      
+      --accent-terracotta: #A85751;       /* 核心強調：啞光磚紅 */
+      --accent-terracotta-light: #F7EFEF; /* 淺磚紅 */
+      --accent-slate: #4A6B82;            /* 輔助：莫蘭迪灰藍 */
+      --accent-slate-light: #EDF3F7;
+      --accent-sage: #5A7052;             /* 輔助：鼠尾草綠 */
+      --accent-sage-light: #EFF4EE;
+      --accent-ochre: #B8834F;            /* 輔助：莫蘭迪陶土黃 */
+      --accent-ochre-light: #F9F3EC;
+      
+      --math-bg: #F4F1EA;
+      --notes-bg: #1E222A;
+      --notes-card: #282C36;
+      --notes-text: #E5E7EB;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+      --font-mono: "Fira Code", Consolas, Monaco, "Courier New", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      user-select: text;
+    }
+
+    /* 頂部進度指示條 */
+    #progress-bar-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: rgba(226, 223, 214, 0.6);
+      z-index: 1000;
+    }
+    #progress-bar {
+      height: 100%;
+      width: 12.5%;
+      background: var(--accent-terracotta);
+      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* 頂部資訊列 */
+    header.slide-header {
+      position: fixed;
+      top: 4px;
+      left: 0;
+      width: 100%;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      background: rgba(248, 247, 244, 0.94);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--card-border);
+      z-index: 900;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .badge-tag {
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 4px;
+      background: var(--accent-terracotta-light);
+      color: var(--accent-terracotta);
+      border: 1px solid rgba(168, 87, 81, 0.25);
+    }
+
+    .header-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .nav-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+    .nav-btn:hover {
+      background: var(--accent-terracotta-light);
+      border-color: var(--accent-terracotta);
+      color: var(--accent-terracotta);
+    }
+    .nav-btn.active {
+      background: var(--accent-terracotta);
+      color: #FFF;
+      border-color: var(--accent-terracotta);
+    }
+
+    /* 投影片主容器視窗 */
+    #slide-viewport {
+      position: relative;
+      width: 100vw;
+      height: calc(100vh - 56px - 50px);
+      margin-top: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .slide-page {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      padding: 30px 54px 40px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(16px);
+      transition: opacity 0.35s ease, transform 0.35s ease;
+      overflow-y: auto;
+    }
+
+    .slide-page.active {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+
+    /* 標題區域規範：無紅色英文分類標籤 */
+    .slide-heading-group {
+      margin-bottom: 22px;
+    }
+    .slide-title {
+      font-size: 2.35rem;
+      font-weight: 800;
+      color: var(--heading-color);
+      line-height: 1.25;
+      letter-spacing: -0.5px;
+    }
+    .slide-subtitle {
+      font-size: 1.15rem;
+      color: var(--text-muted);
+      margin-top: 6px;
+      line-height: 1.5;
+    }
+
+    /* 專屬 Slide 6: 統計大數字看板 (Dashboard Banner) */
+    .dashboard-banner {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      margin-bottom: 20px;
+      width: 100%;
+    }
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 16px 22px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.02);
+      display: flex;
+      flex-direction: column;
+      border-left: 5px solid var(--accent-terracotta);
+    }
+    .stat-number {
+      font-size: 2.1rem;
+      font-weight: 800;
+      color: var(--accent-terracotta);
+      line-height: 1.1;
+      font-family: var(--font-mono);
+      margin-bottom: 4px;
+    }
+    .stat-label {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--heading-color);
+    }
+    .stat-desc {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+
+    /* 專屬 Slide 4: 水平演算法流水線 (Pipeline) */
+    .pipeline-container {
+      display: flex;
+      align-items: stretch;
+      gap: 18px;
+      width: 100%;
+      margin-top: 6px;
+    }
+    .pipeline-step {
+      flex: 1;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 24px 22px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.03);
+    }
+    .step-badge {
+      align-self: flex-start;
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 4px;
+      margin-bottom: 14px;
+    }
+
+    /* 版面網格配置 */
+    .grid-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      width: 100%;
+    }
+    .grid-3col {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 20px;
+      width: 100%;
+    }
+
+    /* 卡片設計規範：統一純白底色，邊框、圖示與列表圓點嚴格同色化 */
+    .m-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 26px 28px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .m-card:hover {
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+    }
+
+    /* 磚紅色系 (Terracotta) */
+    .m-card.featured {
+      border-top: 5px solid var(--accent-terracotta);
+    }
+    .m-card.featured .card-title .icon-indicator {
+      background: var(--accent-terracotta);
+    }
+    .m-card.featured ul.bullet-list li::before {
+      color: var(--accent-terracotta);
+    }
+
+    /* 灰藍色系 (Slate) */
+    .m-card.slate {
+      border-top: 5px solid var(--accent-slate);
+    }
+    .m-card.slate .card-title .icon-indicator {
+      background: var(--accent-slate);
+    }
+    .m-card.slate ul.bullet-list li::before {
+      color: var(--accent-slate);
+    }
+
+    /* 鼠尾草綠色系 (Sage) */
+    .m-card.sage {
+      border-top: 5px solid var(--accent-sage);
+    }
+    .m-card.sage .card-title .icon-indicator {
+      background: var(--accent-sage);
+    }
+    .m-card.sage ul.bullet-list li::before {
+      color: var(--accent-sage);
+    }
+
+    /* 陶土黃色系 (Ochre) */
+    .m-card.ochre {
+      border-top: 5px solid var(--accent-ochre);
+    }
+    .m-card.ochre .card-title .icon-indicator {
+      background: var(--accent-ochre);
+    }
+    .m-card.ochre ul.bullet-list li::before {
+      color: var(--accent-ochre);
+    }
+
+    .card-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--heading-color);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card-title .icon-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    p.content-text {
+      font-size: 1.05rem;
+      line-height: 1.7;
+      color: var(--text-main);
+      margin-bottom: 12px;
+    }
+
+    ul.bullet-list {
+      list-style: none;
+      padding-left: 0;
+    }
+    ul.bullet-list li {
+      position: relative;
+      padding-left: 24px;
+      font-size: 1.05rem;
+      line-height: 1.75;
+      margin-bottom: 12px;
+      color: var(--text-main);
+    }
+    ul.bullet-list li::before {
+      content: "•";
+      position: absolute;
+      left: 6px;
+      font-weight: 900;
+      font-size: 1.3rem;
+      top: -2px;
+    }
+
+    /* 數學公式優雅展示框 */
+    .formula-box {
+      background: var(--math-bg);
+      border-left: 5px solid var(--accent-terracotta);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 14px 0;
+      text-align: center;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.03);
+    }
+    .formula-caption {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      margin-top: 8px;
+      font-style: italic;
+      text-align: left;
+      line-height: 1.5;
+    }
+
+    /* 數據比較表格 */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 0.98rem;
+    }
+    .data-table th, .data-table td {
+      padding: 11px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .data-table th {
+      background: var(--bg-color);
+      color: var(--heading-color);
+      font-weight: 700;
+    }
+    .data-table tr:hover {
+      background: rgba(247, 239, 239, 0.45);
+    }
+    .highlight-cell {
+      color: var(--accent-terracotta);
+      font-weight: 800;
+    }
+
+    /* 底部控制列與右下角按鈕群組 */
+    footer.slide-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      background: rgba(248, 247, 244, 0.96);
+      border-top: 1px solid var(--card-border);
+      font-size: 0.86rem;
+      color: var(--text-muted);
+      z-index: 900;
+    }
+
+    .footer-hints {
+      display: flex;
+      gap: 18px;
+      align-items: center;
+    }
+    .kbd-shortcut {
+      background: #EAE6DC;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-main);
+      border: 1px solid #D8D3C4;
+    }
+
+    /* 右下角控制按鈕群 (首頁、上一頁、頁碼、下一頁) */
+    .footer-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .icon-ctrl-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      width: 34px;
+      height: 34px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+    .icon-ctrl-btn:hover {
+      background: var(--accent-terracotta-light);
+      border-color: var(--accent-terracotta);
+      color: var(--accent-terracotta);
+      transform: translateY(-1px);
+    }
+    .slide-page-badge {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--heading-color);
+      padding: 0 10px;
+    }
+
+    /* 深度研讀筆記抽屜 (Study Notes Drawer) - 徹底隱藏與平滑升起 */
+    #notes-drawer {
+      position: fixed;
+      bottom: 50px;
+      left: 0;
+      width: 100%;
+      height: 56vh;
+      background: var(--notes-bg);
+      color: var(--notes-text);
+      border-top: 3px solid var(--accent-terracotta);
+      box-shadow: 0 -12px 36px rgba(0, 0, 0, 0.4);
+      transform: translateY(120%);
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+      z-index: 950;
+      display: flex;
+      flex-direction: column;
+    }
+    #notes-drawer.open {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .notes-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 32px;
+      background: rgba(0, 0, 0, 0.35);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .notes-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #FFF;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .notes-close-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #D1D5DB;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, color 0.2s;
+    }
+    .notes-close-btn:hover {
+      background: var(--accent-terracotta);
+      color: #FFF;
+      border-color: var(--accent-terracotta);
+    }
+
+    .notes-body {
+      padding: 22px 36px 36px;
+      overflow-y: auto;
+      font-size: 0.98rem;
+      line-height: 1.7;
+    }
+    .notes-card-section {
+      background: var(--notes-card);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-bottom: 16px;
+    }
+    .notes-card-section h4 {
+      color: #FFA59E;
+      font-size: 1.05rem;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .notes-card-section p, .notes-card-section li {
+      color: #D6D9E0;
+      font-size: 0.96rem;
+      line-height: 1.7;
+      margin-bottom: 8px;
+    }
+    .notes-card-section ul {
+      padding-left: 20px;
+    }
+    .wiki-tag {
+      display: inline-block;
+      background: rgba(168, 87, 81, 0.35);
+      color: #FFB3AD;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      margin-bottom: 12px;
+      font-family: var(--font-mono);
+      border: 1px solid rgba(168, 87, 81, 0.4);
+    }
+
+    /* 章節導覽 Modal */
+    #toc-modal {
+      position: fixed;
+      top: 60px;
+      right: 32px;
+      width: 300px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+      padding: 16px;
+      display: none;
+      z-index: 1001;
+    }
+    #toc-modal.open {
+      display: block;
+    }
+    .toc-title {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--heading-color);
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .toc-item {
+      padding: 9px 12px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      color: var(--text-main);
+      transition: background 0.15s;
+      margin-bottom: 4px;
+    }
+    .toc-item:hover {
+      background: var(--accent-terracotta-light);
+      color: var(--accent-terracotta);
+    }
+    .toc-item.active {
+      background: var(--accent-terracotta);
+      color: #FFF;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 頂部進度條 -->
+  <div id="progress-bar-container">
+    <div id="progress-bar"></div>
+  </div>
+
+  <!-- 頂部資訊列 -->
+    <header class="slide-header">
+    <div class="header-left">
+      <span class="badge-tag">Human Factors 2020 文獻簡報</span>
+      <span class="header-title">前臂肌電人因工程：防震手套對前臂肌群活化之建構效度評估</span>
+    </div>
+    <div class="header-right">
+            <a class="nav-btn" href="../index.html" title="返回總覽首頁">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        首頁
+      </a>
+<button class="nav-btn" id="btn-toc" onclick="toggleToc()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h7"/></svg>
+        章節導覽
+      </button>
+      <button class="nav-btn" id="btn-notes" onclick="toggleNotes()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        筆記模式 <span class="kbd-shortcut">N</span>
+      </button>
+      <button class="nav-btn" id="btn-fullscreen" onclick="toggleFullscreen()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+        全螢幕 <span class="kbd-shortcut">F</span>
+      </button>
+    </div>
+  </header>
+  <div id="toc-modal">
+    <div class="toc-title">簡報章節索引 (8 頁)</div>
+    <div class="toc-item active" onclick="goToSlide(0)">01 封面與研究概論</div>
+    <div class="toc-item" onclick="goToSlide(1)">02 職業健康：手傳振動與防震悖論</div>
+    <div class="toc-item" onclick="goToSlide(2)">03 解剖基礎：前臂四大屈伸肌群配置</div>
+    <div class="toc-item" onclick="goToSlide(3)">04 實驗設計：11 種手套條件與雙重握力</div>
+    <div class="toc-item" onclick="goToSlide(4)">05 訊號處理：肌電正規化改良方法學</div>
+    <div class="toc-item" onclick="goToSlide(5)">06 實驗結果：肌電活動增加 22%~78% 數據</div>
+    <div class="toc-item" onclick="goToSlide(6)">07 人因討論：厚度相關性與手部靈巧度</div>
+    <div class="toc-item" onclick="goToSlide(7)">08 核心總結與義肢解碼啟發</div>
+  </div>
+  <main id="slide-viewport">
+
+    <!-- Slide 1: 封面 -->
+    <section class="slide-page active" id="slide-0">
+      <div class="slide-heading-group">
+        <h1 class="slide-title">Assessing Increased Activities of the Forearm Muscles Due to Anti-Vibration Gloves: Construct Validity of a Refined Methodology</h1>
+        <p class="slide-subtitle">評估防震手套對前臂肌肉活動度增加之影響：改良表面肌電測量方法學之建構效度驗證</p>
+      </div>
+      <div class="grid-2col" style="margin-top: 10px;">
+        <div class="m-card featured">
+          <div class="card-title"><span class="icon-indicator"></span>論文文獻基本資訊 (Paper Overview)</div>
+          <ul class="bullet-list">
+            <li><strong>文獻出處:</strong> <em>Human Factors: The Journal of the Human Factors and Ergonomics Society</em>, 2020, Vol. 63(7):1178-1194.</li>
+            <li><strong>作者團隊:</strong> Yumeng Yao, Subhash Rakheja, Christian Larivière, Pierre Marcotte (上海理工大學、加拿大康考迪亞大學與魁北克職業健康安全研究所 IRSST).</li>
+            <li><strong>研究範疇:</strong> 表面肌電 (sEMG)、防震手套 (AV Gloves)、前臂屈伸肌群 (ECR, ED, FCR, FDS)、職業人因工程、肌肉骨骼疾患 (MSD).</li>
+            <li><strong>核心宗旨:</strong> 建立具備高度建構效度的表面肌電評估方法，精確量化工人配戴防震手套操作工具時前臂肌肉負荷的顯著代償增加。</li>
+          </ul>
+        </div>
+        <div class="m-card slate">
+          <div class="card-title"><span class="icon-indicator"></span>三大研究核心與突破 (Core Contributions)</div>
+          <ul class="bullet-list">
+            <li><strong>防震悖論揭露 (The AV Paradox):</strong> 證實防震手套雖然隔絕高頻振動，但厚重材質使前臂肌肉肌電活動顯著激增 <strong>22%~78% (平均 +48%)</strong>。</li>
+            <li><strong>建構效度驗證 (Construct Validity):</strong> 肌肉活動增幅與手套厚度 ($r = 0.74$) 及手部靈活性衰退 ($r = 0.90$) 呈高度正相關。</li>
+            <li><strong>方法學革新 (Refined Protocol):</strong> 提出特定握力標準化參考收縮，成功克服傳統 MVC 正規化的高變異度與易疲勞缺陷。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 2: 職業健康背景與問題意識 -->
+    <section class="slide-page" id="slide-1">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">職業健康：手傳振動與防震手套的「人因悖論」</h2>
+        <p class="slide-subtitle">為什麼旨在保護工人的防震手套，反而可能引發嚴重的上肢肌肉骨骼疾患 (MSD)？</p>
+      </div>
+      <div class="grid-2col">
+        <div class="m-card featured">
+          <div class="card-title"><span class="icon-indicator"></span>手傳振動症候群 (HAVS) 的職業危害</div>
+          <ul class="bullet-list">
+            <li><strong>手持動力工具危害:</strong> 氣動研磨機、鏈鋸、電鑽等工具產生劇烈手傳振動 (HTV)，長期暴露引發白指病 (Raynaud's phenomenon)、末梢神經病變與關節損傷。</li>
+            <li><strong>防震手套 (AV Gloves) 防護理念:</strong> 依據 ISO 10819 標準設計，掌心置入空氣氣囊、凝膠或發泡氯丁橡膠以衰減傳遞至手部的振動加速度。</li>
+          </ul>
+        </div>
+        <div class="m-card slate">
+          <div class="card-title"><span class="icon-indicator"></span>防震手套的「次生代償代價」</div>
+          <ul class="bullet-list">
+            <li><strong>手套厚度犧牲靈巧度:</strong> 厚重的防震材料嚴重剝奪操作者的手部觸覺回饋，降低手部靈巧度 (Manual Dexterity)。</li>
+            <li><strong>代償性握力增加:</strong> 工人為了握緊滑脫的把手，大腦被迫命令前臂肌肉施加遠高於裸手所需的代償性抓握力。</li>
+            <li><strong>肌肉骨骼過度負荷:</strong> 雖然減少了振動暴露，卻加劇了前臂肌腱炎、腕隧道症候群與肌肉疲勞的風險！</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 3: 解剖基礎與目標肌群 -->
+    <section class="slide-page" id="slide-2">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">解剖基礎：前臂四大屈伸肌群與握力動態</h2>
+        <p class="slide-subtitle">深入前臂伸肌與屈肌群：ECR, ED, FCR 與 FDS 的協同發力機制</p>
+      </div>
+      <div class="m-card ochre" style="margin-bottom: 20px; padding: 18px 24px;">
+        <div class="card-title" style="margin-bottom: 8px;"><span class="icon-indicator"></span>前臂握力發力的「屈伸平衡動態」</div>
+        <p class="content-text" style="margin-bottom: 0;">手部抓握並非單靠屈肌發力！手腕伸肌必須強烈協同收縮以固定腕關節於 15°~30° 背屈位，才能讓屈指淺肌 (FDS) 處於最佳長度-張力關係發揮最大抓握力。</p>
+      </div>
+      <div class="grid-2col">
+        <div class="m-card featured">
+          <div class="card-title"><span class="icon-indicator"></span>前臂伸肌側 (Extensor Compartment)</div>
+          <ul class="bullet-list">
+            <li><strong>ECR (橈側伸腕長肌):</strong> 負責穩定腕關節背屈與橈偏，提供抓握的解剖支撐力矩，對配戴手套的負荷最為敏感。</li>
+            <li><strong>ED (伸指肌):</strong> 支配手指伸展，在維持抓握開闔與拮抗控制中提供反向張力調控。</li>
+          </ul>
+        </div>
+        <div class="m-card sage">
+          <div class="card-title"><span class="icon-indicator"></span>前臂屈肌側 (Flexor Compartment)</div>
+          <ul class="bullet-list">
+            <li><strong>FCR (橈側屈腕肌):</strong> 支配手腕掌屈與橈偏，平衡 ECR 的伸腕力矩，在抓握把手時共同增強手腕剛度。</li>
+            <li><strong>FDS (橈側屈指淺肌):</strong> 支配 2–5 指中節指骨屈曲，直接產生手指對把手的向心抓握壓力。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 4: 實驗設計與手套條件 -->
+    <section class="slide-page" id="slide-3">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">實驗設計：11 種手套條件與精確力道監控</h2>
+        <p class="slide-subtitle">15 位受試者、雙重抓握力水準 (15 N vs. 50 N) 與標準化測試把手架構</p>
+      </div>
+      <div class="pipeline-container">
+        <div class="pipeline-step">
+          <div class="step-badge">受試者條件</div>
+          <div class="step-title">15 位健康男性</div>
+          <p class="step-desc">年齡 34.6 ± 10.3 歲，體重 76.7 ± 8.7 kg，身高 174.5 ± 5.7 cm，右手為優勢手，無上肢神經血管病史。</p>
+        </div>
+        <div class="pipeline-step">
+          <div class="step-badge">手套條件</div>
+          <div class="step-title">11 種配置對照</div>
+          <p class="step-desc">1 組裸手對照 (Bare Hand) + 10 種商用防震手套（涵蓋空氣氣囊、凝膠、蜂巢橡膠與氯丁橡膠材質）。</p>
+        </div>
+        <div class="pipeline-step">
+          <div class="step-badge">力矩水準</div>
+          <div class="step-title">雙重動態負荷</div>
+          <p class="step-desc">抓握力：15 N（輕度）與 50 N（重度作業）；推力：25 N 與 50 N；視覺儀表板即時反饋維持恆定力道。</p>
+        </div>
+      </div>
+      <div class="grid-2col" style="margin-top: 20px;">
+        <div class="m-card slate">
+          <div class="card-title"><span class="icon-indicator"></span>儀器與採集設備</div>
+          <ul class="bullet-list">
+            <li><strong>表面肌電系統:</strong> 生物電位採集儀 (Delsys / Biopac)，取樣率 1000 Hz，通頻帶 10–500 Hz。</li>
+            <li><strong>儀表化儀器手柄:</strong> 內嵌高精度壓電多軸力傳感器，即時顯示握力與推力。</li>
+          </ul>
+        </div>
+        <div class="m-card ochre">
+          <div class="card-title"><span class="icon-indicator"></span>物理參數與靈巧度評估</div>
+          <ul class="bullet-list">
+            <li><strong>材料厚度:</strong> 掌心厚度介於 3.5 mm 至 12.0 mm 之間。</li>
+            <li><strong>Purdue Pegboard 測試:</strong> 客觀量化配戴不同手套時手指靈巧度得分的下降幅度。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 5: 訊號處理與正規化方法學 -->
+    <section class="slide-page" id="slide-4">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">訊號處理：肌電正規化改良方法學 (Refined Protocol)</h2>
+        <p class="slide-subtitle">拋棄高變異的 MVC 測試：改採「標準化裸手握力參考收縮」奠定建構效度</p>
+      </div>
+      <div class="grid-2col">
+        <div class="m-card featured">
+          <div class="card-title"><span class="icon-indicator"></span>傳統 MVC 正規化的致命缺陷</div>
+          <ul class="bullet-list">
+            <li><strong>最大發力變異過大:</strong> 受試者在最大自主收縮時受動機、疼痛恐懼影響，跨受試者變異係數 (CV) 常超過 25%。</li>
+            <li><strong>肌肉快速疲勞:</strong> 多次最大用力收縮會導致前臂小肌群迅速乳酸堆積，造成後續試驗肌電頻譜嚴重畸變。</li>
+            <li><strong>與作業任務不匹配:</strong> 實際手持工具作業多為次最大等長抓握，非極限爆發力。</li>
+          </ul>
+        </div>
+        <div class="m-card slate">
+          <div class="card-title"><span class="icon-indicator"></span>改良型次最大握力正規化模型</div>
+          <div class="formula-box">
+            $$\Delta \text{EMG}_{\text{glove}} = \frac{\text{EMG}_{\text{glove}} - \text{EMG}_{\text{bare}}}{\text{EMG}_{\text{bare}}} \times 100\%$$
+            <div class="formula-caption">以受試者裸手在同等握力水準下穩態肌電 RMS 均方根值作為直接比對基準。</div>
+          </div>
+          <p class="content-text">以裸手 50 N 握力作為個體生理參考基準，直接相除得到配戴手套後的<strong>相對百分比增幅</strong>。該方法徹底消除了電極貼附阻抗、皮下脂肪厚度等靜態干擾，大幅提升統計檢定力！</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 6: 實驗結果數據看板與對照表 -->
+    <section class="slide-page" id="slide-5">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">實驗成效：前臂肌電負荷顯著激增 22%~78%</h2>
+        <p class="slide-subtitle">手套厚度與靈活性衰退之強烈相關性證實「代償發力」生理事實</p>
+      </div>
+      <div class="dashboard-banner">
+        <div class="stat-card">
+          <div class="stat-number">+48%</div>
+          <div class="stat-label">ECR &amp; FCR 平均肌電增幅</div>
+          <div class="stat-desc">配戴防震手套後肌電活動激增 (範圍 22%~78%, SD = 28%)</div>
+        </div>
+        <div class="stat-card" style="border-left-color: var(--accent-slate);">
+          <div class="stat-number" style="color:var(--accent-slate);">r = 0.74</div>
+          <div class="stat-label">厚度與肌電增幅正相關</div>
+          <div class="stat-desc">手套掌心厚度越厚，肌群代謝做功負擔越重 (p &lt; .05)</div>
+        </div>
+        <div class="stat-card" style="border-left-color: var(--accent-sage);">
+          <div class="stat-number" style="color:var(--accent-sage);">r = 0.90</div>
+          <div class="stat-label">靈活性損耗與肌電相關</div>
+          <div class="stat-desc">Purdue Pegboard 靈活性下降與肌電增幅極高度正相關 (p &lt; .001)</div>
+        </div>
+      </div>
+      <div class="m-card" style="padding: 16px 20px;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>目標肌肉</th>
+              <th>50-N 握力下敏感度</th>
+              <th>肌電增幅表現 (手套 vs. 裸手)</th>
+              <th>人因生物力學角色</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>ECR (橈側伸腕長肌)</strong></td>
+              <td class="highlight-cell"><strong>極高敏感度 (p &lt; .001)</strong></td>
+              <td>平均增幅 +52%（個別手套高達 +82%）</td>
+              <td>手腕抗彎曲背屈穩定主力，為抓握提供力矩支撐</td>
+            </tr>
+            <tr>
+              <td><strong>FCR (橈側屈腕肌)</strong></td>
+              <td class="highlight-cell"><strong>極高敏感度 (p &lt; .001)</strong></td>
+              <td>平均增幅 +44%（個別手套達 +74%）</td>
+              <td>提供向心掌屈抓握力，平衡腕關節剛度</td>
+            </tr>
+            <tr>
+              <td><strong>FDS (橈側屈指淺肌)</strong></td>
+              <td>中度敏感度</td>
+              <td>平均增幅 +32%~45%</td>
+              <td>支配手指握力，受手套掌面摩擦力係數影響顯著</td>
+            </tr>
+            <tr>
+              <td><strong>ED (伸指肌)</strong></td>
+              <td>中低敏感度</td>
+              <td>平均增幅 +20%~35%</td>
+              <td>伸腕協同發力，主要受開闔手部阻力調控</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Slide 7: 人因討論與防震手套工程優化 -->
+    <section class="slide-page" id="slide-6">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">人因討論：厚度相關性與手套人體工學設計準則</h2>
+        <p class="slide-subtitle">如何破除防震手套「越厚越減振，越厚越傷手」的惡性循環？</p>
+      </div>
+      <div class="grid-2col">
+        <div class="m-card featured">
+          <div class="card-title"><span class="icon-indicator"></span>建構效度 (Construct Validity) 達成之意義</div>
+          <ul class="bullet-list">
+            <li><strong>理論假說成立:</strong> 實驗證實手套造成的肌肉活動增幅與材料厚度 ($r=0.74$) 及手部靈活性損失 ($r=0.90$) 呈高度一致性，證明該肌電方法學能客觀反映真實肌肉疲勞負載。</li>
+            <li><strong>肌肉敏感度階梯:</strong> ECR 與 FCR（伸腕/屈腕肌對）是評估手套負擔最敏感的指標肌群，未來測試可簡化電極數量。</li>
+          </ul>
+        </div>
+        <div class="m-card ochre">
+          <div class="card-title"><span class="icon-indicator"></span>新一代防震手套設計工程準則</div>
+          <ul class="bullet-list">
+            <li><strong>掌心厚度上限控制:</strong> 掌部防震層厚度應嚴格限制於 6 mm 以下，以維持手指自然彎曲曲率半徑。</li>
+            <li><strong>高摩擦係數掌面材質:</strong> 提高手套外層摩擦力，減少工人為防止工具滑脫而產生的無效代償性捏握。</li>
+            <li><strong>分區隔振技術:</strong> 指節部位採用高柔性材料，僅在手掌主要受衝擊點鋪設隔振阻尼，平衡隔振與靈活性。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 8: 核心總結與義肢解碼啟發 -->
+    <section class="slide-page" id="slide-7">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">結論與未來展望：從手套人因工程到智慧肌電解碼</h2>
+        <p class="slide-subtitle">物理外力負載對肌電基線漂移的深遠啟發：義肢抗干擾特徵的必要性</p>
+      </div>
+      <div class="grid-3col">
+        <div class="m-card featured">
+          <div class="card-title"><span class="icon-indicator"></span>1. 人因工程貢獻</div>
+          <p class="content-text">以 15 位受試者 11 種條件實證防震手套造成前臂肌電平均激增 48%，確立了評估防震防護用具的客觀肌電標準。</p>
+        </div>
+        <div class="m-card slate">
+          <div class="card-title"><span class="icon-indicator"></span>2. 50-N 握力測試標準</div>
+          <p class="content-text">證實 50 N 重度握力條件最能放大手套間的性能差異，推薦作為未來 ISO 規範修訂的標準測試負載。</p>
+        </div>
+        <div class="m-card sage">
+          <div class="card-title"><span class="icon-indicator"></span>3. 義肢神經解碼啟發</div>
+          <p class="content-text">外部物理負載會使肌電振幅產生高達 78% 的基線漂移！純能量特徵 (RMS/MAV) 在真實負重時必定崩潰，必須採用微觀小波結構特徵！</p>
+        </div>
+      </div>
+      <div class="m-card" style="margin-top:22px; background:var(--accent-terracotta-light); border:1px solid rgba(168, 87, 81, 0.35);">
+        <p class="content-text" style="margin-bottom:0; font-weight:700; color:var(--accent-terracotta); text-align:center; font-size:1.15rem;">
+          ★ 「物理負載與穿戴介質會使表面肌電產生劇烈能量漂移；唯有跳脫全域能量思維、錨定微觀特徵，才能在動態干擾環境下實現真正強健的人機控制。」
+        </p>
+      </div>
+    </section>
+
+  </main>
+<footer class="slide-footer">
+    <div class="footer-hints">
+      <span>鍵盤快捷鍵：<span class="kbd-shortcut">←</span> <span class="kbd-shortcut">→</span> 切頁</span>
+      <span>筆記：<span class="kbd-shortcut">N</span></span>
+      <span>全螢幕：<span class="kbd-shortcut">F</span></span>
+    </div>
+    <div class="footer-controls">
+      <!-- 回到論文首頁按鈕 (房子圖示) -->
+      <button class="icon-ctrl-btn" onclick="goToSlide(0)" title="返回第一頁">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      </button>
+      <!-- 上一頁按鈕 (左箭頭) -->
+      <button class="icon-ctrl-btn" onclick="prevSlide()" title="上一頁 (←)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <!-- 頁碼標籤 -->
+      <div class="slide-page-badge" id="slide-indicator">01 / 08</div>
+      <!-- 下一頁按鈕 (右箭頭) -->
+      <button class="icon-ctrl-btn" onclick="nextSlide()" title="下一頁 (→)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+  </footer>
+
+  <!-- 深度研讀筆記抽屜 (Study Notes Drawer) -->
+  <div id="notes-drawer">
+    <div class="notes-header">
+      <div class="notes-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <span>深度研讀筆記與複習手冊</span>
+      </div>
+      <button class="notes-close-btn" onclick="toggleNotes()" title="關閉筆記 (Esc)">✕</button>
+    </div>
+    <div class="notes-body" id="notes-content">
+      <!-- 內容由 JavaScript 動態載入當前頁的深度複習資料 -->
+    </div>
+  </div>
+
+  <!-- JavaScript 投影片控制器 -->
+    <script>
+    const slideNotes = [
+  {
+    "wiki": "wiki/papers/yao2020_forearm_muscles_antivibration.md",
+    "title": "Slide 1 深度研讀筆記：論文背景、文獻定位與作者機構全景",
+    "sections": [
+      {
+        "heading": "📖 論文核心摘要與文獻定位",
+        "content": "<p><strong>論文名稱：</strong>Assessing Increased Activities of the Forearm Muscles Due to Anti-Vibration Gloves: Construct Validity of a Refined Methodology<br><strong>發表期刊：</strong><em>Human Factors: The Journal of the Human Factors and Ergonomics Society</em>, 2020, 63(7):1178-1194. (人因工程與人機工程學領域頂尖國際期刊)。<br><strong>作者團隊：</strong>Yumeng Yao, Subhash Rakheja, Christian Larivière, Pierre Marcotte，來自上海理工大學、加拿大康考迪亞大學機械與工業工程系，以及加拿大魁北克職業健康與安全研究所 (IRSST)。<br><strong>研究定位：</strong>針對職業操作中防震手套 (AV Gloves) 帶來的「次生人因肌肉骨骼疾患」難題，首次透過表面肌電圖 (sEMG) 建立了一套具備嚴謹建構效度 (Construct Validity) 的改良型測量方法，量化了前臂深淺肌群在配戴手套時的額外代謝代償負荷。</p>"
+      },
+      {
+        "heading": "🔬 防震手套的力學與人因矛盾",
+        "content": "<ul><li><strong>防震需求：</strong>長期使用氣動錘、砂輪機等振動工具會引發手傳振動症候群 (HAVS)；ISO 10819 規範要求手套掌心採用吸振介質。</li><li><strong>人因代價：</strong>吸振材料厚重，使得操作者握持直徑人為增加，手部抓握生物力學幾何改變，操作者必須花費更大的前臂肌肉力量才能維持相同握力。</li></ul>"
+      },
+      {
+        "heading": "💡 與前臂肌電解碼的深刻聯繫",
+        "content": "<p>本篇論文量化了「外在物理負載/手套」對前臂肌電訊號 (sEMG) 的劇烈干擾。這為我們研究肌電義肢在截肢者日常生活中承受外部接觸力道、穿戴手套或提重物時的訊號漂移提供了極為珍貴的基準對照。</p>"
+      }
+    ]
+  },
+  {
+    "wiki": "wiki/papers/yao2020_forearm_muscles_antivibration.md",
+    "title": "Slide 2 深度研讀筆記：手傳振動危害與防震手套引發的代償發力",
+    "sections": [
+      {
+        "heading": "📖 手傳振動症候群 (HAVS) 之病理背景",
+        "content": "<p>手傳振動 (Hand-transmitted vibration, HTV) 是廣泛存在於林業、採礦、金屬加工與建築作業中的重大職業危害：<br>1. <strong>血管系統病變：</strong>俗稱「振動白指病 (Vibration White Finger)」，手指動脈痙攣缺血，遇冷劇烈疼痛甚至指端壞疽；<br>2. <strong>神經系統病變：</strong>感覺神經纖維髓鞘脫失，觸覺與溫度感知減退，手指麻木；<br>3. <strong>肌肉骨骼病變：</strong>肘關節骨關節炎、前臂肌腱炎與腕隧道症候群 (CTS)。<br>防震手套是目前唯一不需改裝工具即可快速保護工人的防護裝備。</p>"
+      },
+      {
+        "heading": "🔬 代償性用力機制",
+        "content": "<p>然而，防震手套內嵌的空氣囊、聚氨酯凝膠或發泡橡膠厚度通常達 4–12 mm：<br>• 手套材質壓縮變形吸收了抓握時的剛性反饋；<br>• 操作者指腹本體感受器 (Mechanoreceptors) 被嚴重隔離，無法精確感知把手微滑動；<br>• 為了防止工具脫手飛出，大腦本能發出過度發力指令，造成前臂肌肉超額做功。</p>"
+      },
+      {
+        "heading": "💡 上台報告提點",
+        "content": "<p>強調這是一個典型的「以解決一個問題為出發點，卻引發另一個新問題」的工程折衷 (Engineering Trade-off) 實例。</p>"
+      }
+    ]
+  },
+  {
+    "wiki": "wiki/papers/yao2020_forearm_muscles_antivibration.md",
+    "title": "Slide 3 深度研讀筆記：前臂四大屈伸肌群解剖特徵與抓握平衡",
+    "sections": [
+      {
+        "heading": "📖 前臂四條核心肌群解剖功能解析",
+        "content": "<p>本研究精確選取了前臂屈肌側與伸肌側的 4 條關鍵肌肉：<br>1. <strong>ECR (橈側伸腕長肌)：</strong>起於肱骨外上髁，止於第二掌骨底。握持工具時維持手腕背屈，對抗握把下垂扭矩；<br>2. <strong>FCR (橈側屈腕肌)：</strong>起於肱骨內上髁，止於第二掌骨底。負責手腕掌屈與穩定；<br>3. <strong>FDS (橈側屈指淺肌)：</strong>支配近端指間關節屈曲，直接產生對把手的向心抓握壓力；<br>4. <strong>ED (伸指肌)：</strong>調節手指開展與微動協調。<br>其中 ECR 與 FCR 構成關鍵的腕關節對偶肌 (Agonist-Antagonist Pair)。</p>"
+      },
+      {
+        "heading": "🔬 長度-張力關係",
+        "content": "<p>人體人因工程學經典理論指出，當手腕處於 15°~30° 背屈位時，屈指肌 (FDS) 的肌小節 (Sarcomere) 處於最佳重疊長度，可產生最大抓握力。厚重手套迫使腕關節處於不良屈曲或過度伸展狀態，破壞了長度-張力平衡，迫使運動神經元募集更多運動單元以彌補機械效率的喪失。</p>"
+      },
+      {
+        "heading": "💡 延伸解讀",
+        "content": "<p>本篇研究監測的 FDS，正是 Kumar 2013 論文解碼手指微動作的關鍵目標。在負重與手套干擾下，FDS 的活化基線顯著升高，說明生醫訊號在動態人機環境中的複雜性。</p>"
+      }
+    ]
+  },
+  {
+    "wiki": "wiki/papers/yao2020_forearm_muscles_antivibration.md",
+    "title": "Slide 4 深度研讀筆記：11 種手套條件、受試者篩選與實驗台架構",
+    "sections": [
+      {
+        "heading": "📖 受試者特徵與人口統計學參數",
+        "content": "<p>招募 <strong>15 位健康男性受試者</strong>，平均年齡 34.6 ± 10.3 歲，體重 76.7 ± 8.7 kg，身高 174.5 ± 5.7 cm。全體受試者右手均為優勢手，無任何腕隧道症候群、頸椎神經根病變或累積性創傷病史。</p>"
+      },
+      {
+        "heading": "🔬 11 種手套測試條件配置",
+        "content": "<p>包含 1 組裸手基準對照 (BH, Bare Hand) 與 10 種商用防震手套 (G1 至 G10)：<br>• G1–G3：空氣氣囊手套 (Air bladder, 掌心厚度約 7.5~12 mm)；<br>• G4–G6：黏彈性凝膠手套 (Viscoelastic gel, 厚度 4.5~8 mm)；<br>• G7–G8：蜂巢型合成橡膠 (Pod-type chloroprene rubber)；<br>• G9–G10：混合型發泡聚氨酯材質。<br>測試把手外徑固定為 38 mm，符合人體手掌抓握黃金直徑。</p>"
+      },
+      {
+        "heading": "💡 雙重力道組合控制",
+        "content": "<p>受試者需在儀器手柄上維持兩種標準握力水準：<strong>15 N（輕度握持）</strong>與 <strong>50 N（重度作業握持）</strong>，並施加 25 N 與 50 N 的軸向推力。手柄內建雙軸壓電力傳感器，並於受試者正前方螢幕顯示即時力道游標，確保力矩波動在 ±2 N 嚴格範圍內。</p>"
+      }
+    ]
+  },
+  {
+    "wiki": "wiki/papers/yao2020_forearm_muscles_antivibration.md",
+    "title": "Slide 5 深度研讀筆記：改良型肌電正規化方法學之數學推導與建構效度",
+    "sections": [
+      {
+        "heading": "📖 傳統 MVC 正規化方法之局限",
+        "content": "<p>在人因工程與肌電研究中，傳統做法是將肌電訊號除以最大自主收縮 (MVC)。但本文作者指出：<br>1. 握力 MVC 的變異係數高達 20%~30%，易受心理暗示影響；<br>2. 頻繁進行 MVC 誘發深層肌纖維疲勞，使肌電頻譜左移 (Median Frequency Drop)；<br>3. 最致命的是：配戴手套時無法進行「真實手套下的 MVC」，因手套本身限制了最大握力輸出。</p>"
+      },
+      {
+        "heading": "🔬 改良型相對增幅百分比模型",
+        "content": "<p>作者提出以<strong>「同等握力下的裸手肌電」</strong>作為個體自適應參考基準：<br>$$\\Delta \\text{EMG}_{\\text{glove}} = \\frac{\\text{EMG}_{\\text{glove}} - \\text{EMG}_{\\text{bare}}}{\\text{EMG}_{\\text{bare}}} \\times 100\\%$$<br><strong>方法學優勢：</strong><br>• 完美消除電極阻抗與個體皮膚厚度的幾何差異；<br>• 直觀反映配戴手套帶來的「純超額代謝成本 (Excess Metabolic Cost)」；<br>• 具有極高的跨受試者可重複性與統計檢定力。</p>"
+      },
+      {
+        "heading": "💡 建構效度 (Construct Validity) 檢驗準則",
+        "content": "<p>建構效度是指測量工具能否真正量測到理論所預測的心理/生理概念。本研究的檢驗假說為：若肌電增幅確實源於手套干擾，則該增幅必須與「手套物理厚度」呈正相關，並與「手部靈巧度測試得分」呈高度負相關。</p>"
+      }
+    ]
+  },
+  {
+    "wiki": "wiki/papers/yao2020_forearm_muscles_antivibration.md",
+    "title": "Slide 6 深度研讀筆記：實驗數據全景、相關性檢定與統計顯著性",
+    "sections": [
+      {
+        "heading": "📖 肌肉活動激增實驗數據全景",
+        "content": "<p>實驗數據全面證實了手套帶來的額外負擔：<br>• <strong>綜合 ECR_FCR 增幅：</strong>相比裸手基準，10 種手套造成的肌電活動增幅介於 <strong>22% 至 78%</strong>，平均增幅高達 <strong>48% (SD = 28%)</strong>！<br>• <strong>50-N 握力的高敏感度：</strong>在 50 N 握力條件下，手套效應的主效應極度顯著 ($p < 0.001$)，肌肉增幅顯著高於 15 N 握力條件。<br>• <strong>厚重空氣囊手套 (G1-G3)：</strong>增幅最為劇烈，部分受試者 ECR 增幅突破 80%！</p>"
+      },
+      {
+        "heading": "🔬 建構效度之皮爾森相關係數",
+        "content": "<p>1. <strong>與手套厚度之相關性：</strong>ECR_FCR 肌電活動增幅與手套掌心材料厚度呈顯著正相關，<strong>$r = 0.74$ ($p < .05$)</strong>；<br>2. <strong>與手部靈巧度之相關性：</strong>採用 Purdue Pegboard 測試評估手套對微細操作的妨礙，肌電增幅與靈巧度分數損失呈極高度負相關，<strong>$r = 0.90$ ($p < .001$)</strong>！<br>雙重統計檢驗無可辯駁地證實了該改良方法學具備頂級的建構效度。</p>"
+      },
+      {
+        "heading": "💡 四大肌肉敏感度排位",
+        "content": "<p>敏感度排序為：<strong>ECR > FCR > FDS > ED</strong>。這表明手腕伸展穩定肌 (ECR) 是承擔手套代償負載的最前線肌肉，因手腕背屈角度受手套壓迫而產生了最大的姿勢抗力補償。</p>"
+      }
+    ]
+  },
+  {
+    "wiki": "wiki/papers/yao2020_forearm_muscles_antivibration.md",
+    "title": "Slide 7 深度研讀筆記：人因工程設計指引與材料優化策略",
+    "sections": [
+      {
+        "heading": "📖 破除「越厚越好」之隔振迷思",
+        "content": "<p>傳統手套製造商為了通過 ISO 10819 嚴苛的低頻隔振認證，盲目堆疊厚重氣囊與凝膠，導致手套掌部厚度動輒超過 10 mm。本研究揭示：這種設計雖然換取了實驗室振動合格標籤，但在工人真實使用時，高達 78% 的額外肌肉負荷極易引發嚴重的慢性累積性肌肉骨骼損傷 (MSD)。</p>"
+      },
+      {
+        "heading": "🔬 新一代防震手套人體工學準則",
+        "content": "<p>1. <strong>複合多孔薄型材料：</strong>研發非牛頓流體 (剪切增稠膠) 或超材料 (Metamaterials)，在受衝擊瞬間硬化隔振、常態保持柔軟輕薄；<br>2. <strong>掌指分區厚度設計：</strong>手指關節部位完全去除隔振層以保證抓握靈活，僅在魚際肌與掌骨頭主要受力點配置減振襯墊；<br>3. <strong>表面微結構防滑：</strong>提升外層材料摩擦係數，降低工人維持抓握所需的最小握力閾值。</p>"
+      },
+      {
+        "heading": "💡 國際標準修訂倡議",
+        "content": "<p>作者在 Discussion 中明確建議：未來的國際防震手套標準 (ISO 10819) 不應僅評估單一的振動傳遞率 (Transmissibility)，必須將「表面肌電肌肉負荷增幅」與「靈巧度損耗」納入綜合防護效能評級！</p>"
+      }
+    ]
+  },
+  {
+    "wiki": "wiki/papers/yao2020_forearm_muscles_antivibration.md",
+    "title": "Slide 8 深度研讀筆記：神經義肢控制與生醫解碼之跨界啟示",
+    "sections": [
+      {
+        "heading": "📖 三大里程碑結論總結",
+        "content": "<p>1. 建立了以同等握力裸手肌電為基準的改良正規化方法，變異低且具備優異建構效度；<br>2. 證實商用防震手套使前臂肌電平均激增 48% (最高 78%)，厚度與靈巧度相關性達 0.74 與 0.90；<br>3. 確定 50 N 握力條件與 ECR/FCR 肌肉是評估手持作業工具人因負擔的最佳靈敏指標。</p>"
+      },
+      {
+        "heading": "🔬 對肌電人機介面 (sEMG-HCI) 的震撼啟發",
+        "content": "<p>在智慧假手與外骨骼機器人研究中，實驗室訓練出的模式辨識演算法在病患日常穿戴時往往頻繁失靈。本研究給出了解釋：<strong>當截肢者伸手抓取不同重量物體、穿戴手套或受到外部震動衝擊時，前臂肌肉的肌電訊號能量基線會產生 22%~78% 的劇烈漂移！</strong>如果分類器僅依靠 MAV、RMS 或能量特徵，就會把負重引起的能量漂移誤判為手勢切換。這深刻證明了 Kumar (2013) 小波奇異點與各向異性空間結構等「抗能量漂移特徵」的不可或缺性！</p>"
+      },
+      {
+        "heading": "💡 總結致辭金句",
+        "content": "<p>「物理負載與穿戴介質會使表面肌電產生劇烈能量漂移；唯有跳脫全域能量思維、錨定微觀特徵，才能在動態干擾環境下實現真正強健的人機控制。」</p>"
+      }
+    ]
+  }
+];
+let currentSlide = 0;
+    const totalSlides = 8;
+    let notesOpen = false;
+    let tocOpen = false;
+
+    function updateSlide() {
+      // 切換投影片顯示
+      document.querySelectorAll('.slide-page').forEach((slide, idx) => {
+        if (idx === currentSlide) {
+          slide.classList.add('active');
+        } else {
+          slide.classList.remove('active');
+        }
+      });
+
+      // 更新進度條與頁碼
+      const progressPercent = ((currentSlide + 1) / totalSlides) * 100;
+      document.getElementById('progress-bar').style.width = progressPercent + '%';
+      document.getElementById('slide-indicator').textContent = 
+        String(currentSlide + 1).padStart(2, '0') + ' / ' + String(totalSlides).padStart(2, '0');
+
+      // 更新 TOC 清單的高亮狀態
+      document.querySelectorAll('.toc-item').forEach((item, idx) => {
+        if (idx === currentSlide) {
+          item.classList.add('active');
+        } else {
+          item.classList.remove('active');
+        }
+      });
+
+      // 更新研讀筆記內容（三段結構化深入手冊）
+      const note = slideNotes[currentSlide];
+      const notesContainer = document.getElementById('notes-content');
+      let sectionsHtml = '';
+      note.sections.forEach(sec => {
+        sectionsHtml += `
+          <div class="notes-card-section">
+            <h4>${sec.heading}</h4>
+            <div>${sec.content}</div>
+          </div>
+        `;
+      });
+
+      notesContainer.innerHTML = `
+        <span class="wiki-tag">Wiki 溯源節點：${note.wiki}</span>
+        <h3 style="color:#FFF; font-size:1.15rem; margin-bottom:12px;">${note.title}</h3>
+        ${sectionsHtml}
+      `;
+
+      // 觸發 KaTeX 渲染
+      if (window.renderMathInElement) {
+        renderMathInElement(document.getElementById('slide-viewport'), {
+          delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]
+        });
+        renderMathInElement(notesContainer, {
+          delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]
+        });
+      }
+    }
+
+    function nextSlide() {
+      if (currentSlide < totalSlides - 1) {
+        currentSlide++;
+        updateSlide();
+      }
+    }
+
+    function prevSlide() {
+      if (currentSlide > 0) {
+        currentSlide--;
+        updateSlide();
+      }
+    }
+
+    function goToSlide(idx) {
+      if (idx >= 0 && idx < totalSlides) {
+        currentSlide = idx;
+        updateSlide();
+        if (tocOpen) toggleToc();
+      }
+    }
+
+    // 筆記抽屜開關 - 徹底隱藏與展開
+    function toggleNotes() {
+      notesOpen = !notesOpen;
+      const drawer = document.getElementById('notes-drawer');
+      const btn = document.getElementById('btn-notes');
+      if (notesOpen) {
+        drawer.classList.add('open');
+        btn.classList.add('active');
+      } else {
+        drawer.classList.remove('open');
+        btn.classList.remove('active');
+      }
+    }
+
+    // 章節導覽 Modal 開關
+    function toggleToc() {
+      tocOpen = !tocOpen;
+      const modal = document.getElementById('toc-modal');
+      const btn = document.getElementById('btn-toc');
+      if (tocOpen) {
+        modal.classList.add('open');
+        btn.classList.add('active');
+      } else {
+        modal.classList.remove('open');
+        btn.classList.remove('active');
+      }
+    }
+
+    // 全螢幕切換
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+          console.warn(`Error attempting to enable full-screen mode: ${err.message}`);
+        });
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+
+    // 鍵盤導航監聽
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+        e.preventDefault();
+        nextSlide();
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        e.preventDefault();
+        prevSlide();
+      } else if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        toggleNotes();
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        toggleFullscreen();
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        goToSlide(0);
+      } else if (e.key === 'Escape') {
+        if (tocOpen) toggleToc();
+        if (notesOpen) toggleNotes();
+      }
+    });
+
+    // 初始化載入
+    window.addEventListener('DOMContentLoaded', () => {
+      updateSlide();
+    });
+  </script>
+</body>
+</html>
