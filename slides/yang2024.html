@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>單通道表面肌電訊號的手指動作辨識 — 深度教學簡報與論文研讀手冊</title>
+  
+  <!-- KaTeX 數學公式排版引擎 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" 
+          onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+
+  <style>
+    /* 莫蘭迪灰階石墨與啞光磚紅 (Graphite & Muted Terracotta) 核心色彩定義 */
+    :root {
+      --bg-color: #F8F7F4;
+      --card-bg: #FFFFFF;
+      --card-border: #E2DFD6;
+      --text-main: #343840;
+      --text-muted: #6C727D;
+      --heading-color: #20242B;
+      
+      --accent-terracotta: #A85751;       /* 核心強調：啞光磚紅 */
+      --accent-terracotta-light: #F7EFEF; /* 淺磚紅 */
+      --accent-slate: #4A6B82;            /* 輔助：莫蘭迪灰藍 */
+      --accent-slate-light: #EDF3F7;
+      --accent-sage: #5A7052;             /* 輔助：鼠尾草綠 */
+      --accent-sage-light: #EFF4EE;
+      --accent-ochre: #B8834F;            /* 輔助：莫蘭迪陶土黃 */
+      --accent-ochre-light: #F9F3EC;
+      
+      --math-bg: #F4F1EA;
+      --notes-bg: #1E222A;
+      --notes-card: #282C36;
+      --notes-text: #E5E7EB;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+      --font-mono: "Fira Code", Consolas, Monaco, "Courier New", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      user-select: text;
+    }
+
+    /* 頂部進度指示條 */
+    #progress-bar-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: rgba(226, 223, 214, 0.6);
+      z-index: 1000;
+    }
+    #progress-bar {
+      height: 100%;
+      width: 12.5%;
+      background: var(--accent-terracotta);
+      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* 頂部資訊列 */
+    header.slide-header {
+      position: fixed;
+      top: 4px;
+      left: 0;
+      width: 100%;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      background: rgba(248, 247, 244, 0.94);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--card-border);
+      z-index: 900;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .badge-tag {
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 4px;
+      background: var(--accent-terracotta-light);
+      color: var(--accent-terracotta);
+      border: 1px solid rgba(168, 87, 81, 0.25);
+    }
+
+    .header-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .nav-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+    .nav-btn:hover {
+      background: var(--accent-terracotta-light);
+      border-color: var(--accent-terracotta);
+      color: var(--accent-terracotta);
+    }
+    .nav-btn.active {
+      background: var(--accent-terracotta);
+      color: #FFF;
+      border-color: var(--accent-terracotta);
+    }
+
+    /* 投影片主容器視窗 */
+    #slide-viewport {
+      position: relative;
+      width: 100vw;
+      height: calc(100vh - 56px - 50px);
+      margin-top: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .slide-page {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      padding: 30px 54px 40px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(16px);
+      transition: opacity 0.35s ease, transform 0.35s ease;
+      overflow-y: auto;
+    }
+
+    .slide-page.active {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+
+    /* 標題區域規範：無紅色英文分類標籤 */
+    .slide-heading-group {
+      margin-bottom: 22px;
+    }
+    .slide-title {
+      font-size: 2.35rem;
+      font-weight: 800;
+      color: var(--heading-color);
+      line-height: 1.25;
+      letter-spacing: -0.5px;
+    }
+    .slide-subtitle {
+      font-size: 1.15rem;
+      color: var(--text-muted);
+      margin-top: 6px;
+      line-height: 1.5;
+    }
+
+    /* 專屬 Slide 6: 統計大數字看板 (Dashboard Banner) */
+    .dashboard-banner {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      margin-bottom: 20px;
+      width: 100%;
+    }
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 16px 22px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.02);
+      display: flex;
+      flex-direction: column;
+      border-left: 5px solid var(--accent-terracotta);
+    }
+    .stat-number {
+      font-size: 2.1rem;
+      font-weight: 800;
+      color: var(--accent-terracotta);
+      line-height: 1.1;
+      font-family: var(--font-mono);
+      margin-bottom: 4px;
+    }
+    .stat-label {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--heading-color);
+    }
+    .stat-desc {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+
+    /* 專屬 Slide 4: 水平演算法流水線 (Pipeline) */
+    .pipeline-container {
+      display: flex;
+      align-items: stretch;
+      gap: 18px;
+      width: 100%;
+      margin-top: 6px;
+    }
+    .pipeline-step {
+      flex: 1;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 24px 22px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.03);
+    }
+    .step-badge {
+      align-self: flex-start;
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 4px;
+      margin-bottom: 14px;
+    }
+
+    /* 版面網格配置 */
+    .grid-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      width: 100%;
+    }
+    .grid-3col {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 20px;
+      width: 100%;
+    }
+
+    /* 卡片設計規範：統一純白底色，邊框、圖示與列表圓點嚴格同色化 */
+    .m-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 26px 28px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .m-card:hover {
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+    }
+
+    /* 磚紅色系 (Terracotta) */
+    .m-card.featured {
+      border-top: 5px solid var(--accent-terracotta);
+    }
+    .m-card.featured .card-title .icon-indicator {
+      background: var(--accent-terracotta);
+    }
+    .m-card.featured ul.bullet-list li::before {
+      color: var(--accent-terracotta);
+    }
+
+    /* 灰藍色系 (Slate) */
+    .m-card.slate {
+      border-top: 5px solid var(--accent-slate);
+    }
+    .m-card.slate .card-title .icon-indicator {
+      background: var(--accent-slate);
+    }
+    .m-card.slate ul.bullet-list li::before {
+      color: var(--accent-slate);
+    }
+
+    /* 鼠尾草綠色系 (Sage) */
+    .m-card.sage {
+      border-top: 5px solid var(--accent-sage);
+    }
+    .m-card.sage .card-title .icon-indicator {
+      background: var(--accent-sage);
+    }
+    .m-card.sage ul.bullet-list li::before {
+      color: var(--accent-sage);
+    }
+
+    /* 陶土黃色系 (Ochre) */
+    .m-card.ochre {
+      border-top: 5px solid var(--accent-ochre);
+    }
+    .m-card.ochre .card-title .icon-indicator {
+      background: var(--accent-ochre);
+    }
+    .m-card.ochre ul.bullet-list li::before {
+      color: var(--accent-ochre);
+    }
+
+    .card-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--heading-color);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card-title .icon-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    p.content-text {
+      font-size: 1.05rem;
+      line-height: 1.7;
+      color: var(--text-main);
+      margin-bottom: 12px;
+    }
+
+    ul.bullet-list {
+      list-style: none;
+      padding-left: 0;
+    }
+    ul.bullet-list li {
+      position: relative;
+      padding-left: 24px;
+      font-size: 1.05rem;
+      line-height: 1.75;
+      margin-bottom: 12px;
+      color: var(--text-main);
+    }
+    ul.bullet-list li::before {
+      content: "•";
+      position: absolute;
+      left: 6px;
+      font-weight: 900;
+      font-size: 1.3rem;
+      top: -2px;
+    }
+
+    /* 數學公式優雅展示框 */
+    .formula-box {
+      background: var(--math-bg);
+      border-left: 5px solid var(--accent-terracotta);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 14px 0;
+      text-align: center;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.03);
+    }
+    .formula-caption {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      margin-top: 8px;
+      font-style: italic;
+      text-align: left;
+      line-height: 1.5;
+    }
+
+    /* 數據比較表格 */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 0.98rem;
+    }
+    .data-table th, .data-table td {
+      padding: 11px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .data-table th {
+      background: var(--bg-color);
+      color: var(--heading-color);
+      font-weight: 700;
+    }
+    .data-table tr:hover {
+      background: rgba(247, 239, 239, 0.45);
+    }
+    .highlight-cell {
+      color: var(--accent-terracotta);
+      font-weight: 800;
+    }
+
+    /* 底部控制列與右下角按鈕群組 */
+    footer.slide-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      background: rgba(248, 247, 244, 0.96);
+      border-top: 1px solid var(--card-border);
+      font-size: 0.86rem;
+      color: var(--text-muted);
+      z-index: 900;
+    }
+
+    .footer-hints {
+      display: flex;
+      gap: 18px;
+      align-items: center;
+    }
+    .kbd-shortcut {
+      background: #EAE6DC;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-main);
+      border: 1px solid #D8D3C4;
+    }
+
+    /* 右下角控制按鈕群 (首頁、上一頁、頁碼、下一頁) */
+    .footer-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .icon-ctrl-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      width: 34px;
+      height: 34px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+    .icon-ctrl-btn:hover {
+      background: var(--accent-terracotta-light);
+      border-color: var(--accent-terracotta);
+      color: var(--accent-terracotta);
+      transform: translateY(-1px);
+    }
+    .slide-page-badge {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--heading-color);
+      padding: 0 10px;
+    }
+
+    /* 深度研讀筆記抽屜 (Study Notes Drawer) - 徹底隱藏與平滑升起 */
+    #notes-drawer {
+      position: fixed;
+      bottom: 50px;
+      left: 0;
+      width: 100%;
+      height: 56vh;
+      background: var(--notes-bg);
+      color: var(--notes-text);
+      border-top: 3px solid var(--accent-terracotta);
+      box-shadow: 0 -12px 36px rgba(0, 0, 0, 0.4);
+      transform: translateY(120%);
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+      z-index: 950;
+      display: flex;
+      flex-direction: column;
+    }
+    #notes-drawer.open {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .notes-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 32px;
+      background: rgba(0, 0, 0, 0.35);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .notes-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #FFF;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .notes-close-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #D1D5DB;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, color 0.2s;
+    }
+    .notes-close-btn:hover {
+      background: var(--accent-terracotta);
+      color: #FFF;
+      border-color: var(--accent-terracotta);
+    }
+
+    .notes-body {
+      padding: 22px 36px 36px;
+      overflow-y: auto;
+      font-size: 0.98rem;
+      line-height: 1.7;
+    }
+    .notes-card-section {
+      background: var(--notes-card);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-bottom: 16px;
+    }
+    .notes-card-section h4 {
+      color: #FFA59E;
+      font-size: 1.05rem;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .notes-card-section p, .notes-card-section li {
+      color: #D6D9E0;
+      font-size: 0.96rem;
+      line-height: 1.7;
+      margin-bottom: 8px;
+    }
+    .notes-card-section ul {
+      padding-left: 20px;
+    }
+    .wiki-tag {
+      display: inline-block;
+      background: rgba(168, 87, 81, 0.35);
+      color: #FFB3AD;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      margin-bottom: 12px;
+      font-family: var(--font-mono);
+      border: 1px solid rgba(168, 87, 81, 0.4);
+    }
+
+    /* 章節導覽 Modal */
+    #toc-modal {
+      position: fixed;
+      top: 60px;
+      right: 32px;
+      width: 300px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+      padding: 16px;
+      display: none;
+      z-index: 1001;
+    }
+    #toc-modal.open {
+      display: block;
+    }
+    .toc-title {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--heading-color);
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .toc-item {
+      padding: 9px 12px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      color: var(--text-main);
+      transition: background 0.15s;
+      margin-bottom: 4px;
+    }
+    .toc-item:hover {
+      background: var(--accent-terracotta-light);
+      color: var(--accent-terracotta);
+    }
+    .toc-item.active {
+      background: var(--accent-terracotta);
+      color: #FFF;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 頂部進度條 -->
+  <div id="progress-bar-container">
+    <div id="progress-bar"></div>
+  </div>
+
+  <!-- 頂部資訊列 -->
+    <header class="slide-header">
+    <div class="header-left">
+      <span class="badge-tag">Front. Bioeng. 2026 文獻簡報</span>
+      <span class="header-title">多模態智慧復健：6 通道 sEMG 結合手指彎曲手套之手勢辨識</span>
+    </div>
+    <div class="header-right">
+            <a class="nav-btn" href="../index.html" title="返回總覽首頁">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        首頁
+      </a>
+<button class="nav-btn" id="btn-toc" onclick="toggleToc()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h7"/></svg>
+        章節導覽
+      </button>
+      <button class="nav-btn" id="btn-notes" onclick="toggleNotes()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        筆記模式 <span class="kbd-shortcut">N</span>
+      </button>
+      <button class="nav-btn" id="btn-fullscreen" onclick="toggleFullscreen()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+        全螢幕 <span class="kbd-shortcut">F</span>
+      </button>
+    </div>
+  </header>
+  <div id="toc-modal">
+    <div class="toc-title">簡報章節索引 (8 頁)</div>
+    <div class="toc-item active" onclick="goToSlide(0)">01 封面與研究概論</div>
+    <div class="toc-item" onclick="goToSlide(1)">02 臨床問題：中風手功能障礙與評估盲區</div>
+    <div class="toc-item" onclick="goToSlide(2)">03 感測架構：肌電與柔性手套多模態融合</div>
+    <div class="toc-item" onclick="goToSlide(3)">04 資料庫構建：15 位受試者與 900 組臨床數據</div>
+    <div class="toc-item" onclick="goToSlide(4)">05 訊號處理：SG 濾波與 STFT 時頻譜轉換</div>
+    <div class="toc-item" onclick="goToSlide(5)">06 實驗結果：&gt;90% 跨模型手勢分類數據</div>
+    <div class="toc-item" onclick="goToSlide(6)">07 臨床評估：客觀神經復健與運動分級</div>
+    <div class="toc-item" onclick="goToSlide(7)">08 核心總結與人機智慧復健展望</div>
+  </div>
+  <main id="slide-viewport">
+
+    <!-- Slide 1: 封面 -->
+    <section class="slide-page active" id="slide-0">
+      <div class="slide-heading-group">
+        <h1 class="slide-title">Assisting Hand Gesture Classification and Rehabilitation Assessment via sEMG and Finger Motion Data</h1>
+        <p class="slide-subtitle">結合前臂表面肌電訊號 (sEMG) 與手指運動數據之手勢分類與智慧復健客觀量化評估系統</p>
+      </div>
+      <div class="grid-2col" style="margin-top: 10px;">
+        <div class="m-card featured">
+          <div class="card-title"><span class="icon-indicator"></span>論文文獻基本資訊 (Paper Overview)</div>
+          <ul class="bullet-list">
+            <li><strong>文獻出處:</strong> <em>Frontiers in Bioengineering and Biotechnology</em>, 2026, 13:1533036.</li>
+            <li><strong>作者團隊:</strong> Xiuxiu Yang, Lingfeng Zhang, Fukui Wu, Xinran Wei, Haifeng Huang, Jun Li, Tao Hu (湖北民族大學智慧科學與工程學院、東京大學工學系研究科).</li>
+            <li><strong>研究範疇:</strong> 多模態感測融合 (Multimodal Fusion)、表面肌電 (sEMG)、數據手套 (Data Glove)、機器學習、中風運動復健 (Stroke Rehabilitation).</li>
+            <li><strong>核心宗旨:</strong> 攻克傳統手部復健評估仰賴主觀量表的痛點，研發整合 6 通道 sEMG 與手指彎曲曲率的穿戴裝置，實現高精準度手勢識別與客觀量化復健評估。</li>
+          </ul>
+        </div>
+        <div class="m-card slate">
+          <div class="card-title"><span class="icon-indicator"></span>三大研究核心與突破 (Core Contributions)</div>
+          <ul class="bullet-list">
+            <li><strong>多模態硬體同步架構:</strong> 整合前臂 3 大深淺屈肌群 (FPL, FDS, FDP) 雙極肌電與 5 指背側柔性彎曲感測器，神經意圖與運動軌跡相互校準。</li>
+            <li><strong>真實臨床數據庫 (Hospital Field Data):</strong> 採集 15 位受試者（含中風住院患者）共 900 組臨床真實動作，突破以往公開數據集僅限健康人的瓶頸。</li>
+            <li><strong>跨模型高精準解碼:</strong> 結合 Savitzky–Golay 濾波與 STFT 時頻譜，SVM、LightGBM 與 MLP 在交叉驗證與測試集均達到 <strong>&gt;90%</strong> 精確度。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 2: 臨床背景與問題意識 -->
+    <section class="slide-page" id="slide-1">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">臨床問題：中風後手功能障礙與傳統評估「盲區」</h2>
+        <p class="slide-subtitle">為什麼臨床急需跳脫人工量表，建立基於客觀穿戴感測的定量手部復健評估體系？</p>
+      </div>
+      <div class="grid-2col">
+        <div class="m-card featured">
+          <div class="card-title"><span class="icon-indicator"></span>中風後手部精細運動功能障礙</div>
+          <ul class="bullet-list">
+            <li><strong>皮質脊髓束損傷:</strong> 腦卒中導致上運動神經元受損，手指伸肌無力、屈肌群異常痙攣協同，精細捏握與獨立手指伸展嚴重喪失。</li>
+            <li><strong>傳統臨床量表局限:</strong> 目前黃金標準（如 Fugl-Meyer FMA、Action Research Arm Test ARAT）仰賴治療師肉眼觀察評分：
+              <ul style="margin-top:6px; margin-left:16px;">
+                <li>主觀評分者間信度 (Inter-rater reliability) 存在波動；</li>
+                <li>分值為離散粗分（0、1、2 分），無法捕捉微小神經恢復進展；</li>
+                <li>耗費大量臨床人力，無法實現居家遠程連續追蹤。</li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+        <div class="m-card slate">
+          <div class="card-title"><span class="icon-indicator"></span>單一模態感測技術的致命瓶頸</div>
+          <ul class="bullet-list">
+            <li><strong>純肌電 (sEMG-only) 脆弱性:</strong> 中風患者患側肌電極度微弱且肌肉萎縮嚴重，皮膚阻抗高且運動偽影劇烈，單靠肌電極易誤判。</li>
+            <li><strong>純運動手套 (Motion-only) 盲區:</strong> 僅量測關節角度無法辨識患者是「大腦主動發力」還是「外力被動牽拉」，無法反映真實神經肌肉招募意圖。</li>
+            <li><strong>多模態融合必然性:</strong> 將「神經發力意圖 (sEMG)」與「終端運動表現 (曲率)」深度耦合是破局關鍵！</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 3: 感測硬體架構與解剖肌群配置 -->
+    <section class="slide-page" id="slide-2">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">感測架構：6 通道 sEMG 結合柔性運動捕捉手套</h2>
+        <p class="slide-subtitle">前臂三大深淺關鍵屈肌群配置與五指關節柔性彎曲感測器之多模態硬體設計</p>
+      </div>
+      <div class="m-card ochre" style="margin-bottom: 20px; padding: 18px 24px;">
+        <div class="card-title" style="margin-bottom: 8px;"><span class="icon-indicator"></span>多模態互補感測機制 (Complementary Sensing Modality)</div>
+        <p class="content-text" style="margin-bottom: 0;">sEMG 提供肌肉收縮的神經前饋電位（提前運動約 50–100 ms 產生），柔性手套提供指關節彎曲的物理運動反饋，兩者融合既克服了肌電噪聲，又賦予了運動學數據神經生理維度。</p>
+      </div>
+      <div class="grid-2col">
+        <div class="m-card featured">
+          <div class="card-title"><span class="icon-indicator"></span>6 通道前臂肌電電極配置 (3 大肌腹 × 2)</div>
+          <ul class="bullet-list">
+            <li><strong>FPL (屈拇長肌, 2 通道):</strong> 覆蓋前臂橈側深層，專一支配拇指遠端指骨屈曲，解碼拇指捏握與對掌核心。</li>
+            <li><strong>FDS (橈側屈指淺肌, 2 通道):</strong> 覆蓋前臂掌側中間層，支配第 2–5 指中節指骨屈曲，反映大面積抓握力量。</li>
+            <li><strong>FDP (屈指深肌, 2 通道):</strong> 覆蓋前臂深層，支配第 2–5 指遠節指骨屈曲，提供指尖精細按壓反饋。</li>
+          </ul>
+        </div>
+        <div class="m-card sage">
+          <div class="card-title"><span class="icon-indicator"></span>五指柔性運動捕捉手套 (Data Glove)</div>
+          <ul class="bullet-list">
+            <li><strong>感測元件:</strong> 5 根高精度柔性壓阻彎曲感測器 (Flexible Bending Sensors)，縫合於手套背側 5 根手指關節處。</li>
+            <li><strong>物理輸出:</strong> 動態量化各手指掌指關節 (MCP) 與近端指間關節 (PIP) 的即時彎曲曲率變化。</li>
+            <li><strong>穿戴友善:</strong> 輕量透氣織物，患側攣縮手亦能由護理人員快速輔助穿脫。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 4: 臨床資料庫構建與手勢設計 -->
+    <section class="slide-page" id="slide-3">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">資料庫構建：15 位受試者、6 種手勢與 900 次臨床採集</h2>
+        <p class="slide-subtitle">深入恩施醫院臨床實地採集，構建涵蓋不同運動障礙等級的中風復健資料庫</p>
+      </div>
+      <div class="pipeline-container">
+        <div class="pipeline-step">
+          <div class="step-badge">受試者構成</div>
+          <div class="step-title">15 位臨床受試者</div>
+          <p class="step-desc">包含腦卒中偏癱住院患者（涵蓋不同 Brunnstrom 分期之運動障礙者）與健康對照組，於醫院病房現場採集。</p>
+        </div>
+        <div class="pipeline-step">
+          <div class="step-badge">動作範式</div>
+          <div class="step-title">6 類復健核心手勢</div>
+          <p class="step-desc">手勢 0 至 5：握拳 (Fist)、張手 (Open)、二指捏 (Pinch)、單指指點 (Point)、比讚 (Thumb-up) 與特定對掌手勢。</p>
+        </div>
+        <div class="pipeline-step">
+          <div class="step-badge">數據總量</div>
+          <div class="step-title">900 組量化樣本</div>
+          <p class="step-desc">每位受試者在觀看示範影片後重複執行各手勢 10 次（15 人 × 6 手勢 × 10 次 = 900 組同步時序數據）。</p>
+        </div>
+      </div>
+      <div class="grid-2col" style="margin-top: 20px;">
+        <div class="m-card slate">
+          <div class="card-title"><span class="icon-indicator"></span>標準化臨床採集環境</div>
+          <ul class="bullet-list">
+            <li><strong>放鬆體位:</strong> 受試者前臂自然平放於床邊測試台，消除肩關節與上臂代償性肌電干擾。</li>
+            <li><strong>示範與引導:</strong> 透過平板同步播放標準動作示範，重症患者由治療師口語協助引導運動意圖。</li>
+          </ul>
+        </div>
+        <div class="m-card ochre">
+          <div class="card-title"><span class="icon-indicator"></span>突破現有公開數據集局限</div>
+          <ul class="bullet-list">
+            <li><strong>拒絕「實驗室玩具」:</strong> 既有公開肌電庫（如 Ninapro）受試者多為年輕健康人，本數據庫直接面對病患病理肌電特徵。</li>
+            <li><strong>高異質性考驗:</strong> 囊括不同攣縮程度與震顫，極大考驗演算法在惡劣臨床環境下的強健性。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 5: 訊號前處理與 STFT 時頻譜轉換 -->
+    <section class="slide-page" id="slide-4">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">訊號處理：Savitzky–Golay 濾波與 STFT 時頻譜特徵</h2>
+        <p class="slide-subtitle">平滑去噪且保留瞬態幾何形變：端到端時頻特徵提取流水線</p>
+      </div>
+      <div class="grid-2col">
+        <div class="m-card featured">
+          <div class="card-title"><span class="icon-indicator"></span>Savitzky–Golay (SG) 多項式平滑濾波</div>
+          <div class="formula-box">
+            $$Y_j = \sum_{i=-m}^{m} C_i \cdot X_{j+i}$$
+            <div class="formula-caption">利用局部移動窗口內的最小平方法多項式擬合進行平滑去噪。</div>
+          </div>
+          <ul class="bullet-list">
+            <li><strong>保持波形形貌:</strong> 相比傳統移動平均或 Butterworth 低通濾波器，SG 濾波在強效抑制高頻抖動噪聲的同時，<strong>完全不削平動作發生的瞬態峰值與曲率突變</strong>！</li>
+            <li><strong>零相位失真:</strong> 對於手指關節角度與肌電包絡的時序同步至關重要。</li>
+          </ul>
+        </div>
+        <div class="m-card slate">
+          <div class="card-title"><span class="icon-indicator"></span>短時傅立葉變換 (STFT) 時頻譜特徵</div>
+          <div class="formula-box">
+            $$\text{STFT}\{x(t)\}(\tau, \omega) = \int_{-\infty}^{\infty} x(t) w(t - \tau) e^{-j \omega t} dt$$
+            <div class="formula-caption">利用漢明滑動窗口函數 $w(t-\tau)$ 提取局部非平穩肌電的時頻能量分佈。</div>
+          </div>
+          <p class="content-text">將 6 通道連續肌電切片映射為 2D 時頻譜圖 (Spectrogram)，同時捕捉肌肉運動單元放電的微觀時間位置與頻譜能量轉移，與手套角度向量拼接為多模態特徵輸入。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 6: 實驗結果數據看板與對照表 -->
+    <section class="slide-page" id="slide-5">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">實驗成效：跨模型高達 &gt;90% 手勢分類精確率</h2>
+        <p class="slide-subtitle">SVM, LightGBM 與多層感知機 (MLP) 在臨床測試集上展現頂級強健性</p>
+      </div>
+      <div class="dashboard-banner">
+        <div class="stat-card">
+          <div class="stat-number">&gt; 90%</div>
+          <div class="stat-label">跨模型分類精確率</div>
+          <div class="stat-desc">SVM, LightGBM, MLP 在獨立測試集均超越 90%</div>
+        </div>
+        <div class="stat-card" style="border-left-color: var(--accent-slate);">
+          <div class="stat-number" style="color:var(--accent-slate);">6 Channels</div>
+          <div class="stat-label">前臂肌電陣列覆蓋</div>
+          <div class="stat-desc">FPL, FDS, FDP 深淺肌群精確解碼</div>
+        </div>
+        <div class="stat-card" style="border-left-color: var(--accent-sage);">
+          <div class="stat-number" style="color:var(--accent-sage);">900 Sets</div>
+          <div class="stat-label">臨床現場實測數據庫</div>
+          <div class="stat-desc">15 位受試者 × 6 類復健動作真實驗證</div>
+        </div>
+      </div>
+      <div class="m-card" style="padding: 16px 20px;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>機器學習模型</th>
+              <th>交叉驗證精確率 (CV)</th>
+              <th>獨立測試集精確率</th>
+              <th>臨床推論延遲與特性</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>SVM (支援向量機, RBF)</strong></td>
+              <td class="highlight-cell"><strong>91.4%</strong></td>
+              <td class="highlight-cell"><strong>90.8%</strong></td>
+              <td>凸最佳化全域最優解，小樣本極具泛化強健性</td>
+            </tr>
+            <tr>
+              <td><strong>LightGBM (輕量梯度提升樹)</strong></td>
+              <td class="highlight-cell"><strong>93.2%</strong></td>
+              <td class="highlight-cell"><strong>92.5%</strong></td>
+              <td>直方圖演算法運算極快，適合嵌入式微控制器即時分類</td>
+            </tr>
+            <tr>
+              <td><strong>MLP (多層感知機類神經網路)</strong></td>
+              <td class="highlight-cell"><strong>92.1%</strong></td>
+              <td class="highlight-cell"><strong>91.2%</strong></td>
+              <td>非線性映射能力強，多模態特徵深度表徵能力優秀</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Slide 7: 臨床復健客觀量化評估 -->
+    <section class="slide-page" id="slide-6">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">臨床評估：客觀神經復健分級與運動功能追蹤</h2>
+        <p class="slide-subtitle">跳脫主觀量表：利用多模態分類精準度與特徵流形對齊臨床恢復階段</p>
+      </div>
+      <div class="grid-2col">
+        <div class="m-card featured">
+          <div class="card-title"><span class="icon-indicator"></span>功能恢復與分類分離度的強相關</div>
+          <ul class="bullet-list">
+            <li><strong>輕中度障礙患者 (高功能):</strong> 肌電與手套特徵在特徵空間中呈現清晰的簇分離 (Cluster Separation)，分類精確率接近 95%，對應運動皮質與外周神經通路的高完整度。</li>
+            <li><strong>重度偏癱患者 (低功能):</strong> 協同運動障礙嚴重，分類器精確率出現結構性下降（主要混淆於捏握與握拳），直觀量化了病患痙攣與不隨意協同收縮的病理程度！</li>
+          </ul>
+        </div>
+        <div class="m-card ochre">
+          <div class="card-title"><span class="icon-indicator"></span>智慧居家遠程復健 (Telerehabilitation) 應用</div>
+          <ul class="bullet-list">
+            <li><strong>自動化每日打分:</strong> 病患配戴手套完成指定動作，系統自動回傳手勢完成度、反應時間與發力協調指數，生成客觀雷達圖。</li>
+            <li><strong>虛擬遊戲互動驅動:</strong> 結合 Unity 虛擬手部互動，將手勢識別結果即時映射至遊戲關卡，大幅提高中風患者在乏味康復訓練中的依從性與神經可塑性。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 8: 核心總結與人機智慧復健展望 -->
+    <section class="slide-page" id="slide-7">
+      <div class="slide-heading-group">
+        <h2 class="slide-title">結論與未來展望：邁向身心一體的人機共生復健</h2>
+        <p class="slide-subtitle">多模態穿戴系統為神經復健評估與智慧義肢控制開闢的全新典範</p>
+      </div>
+      <div class="grid-3col">
+        <div class="m-card featured">
+          <div class="card-title"><span class="icon-indicator"></span>1. 多模態架構驗證</div>
+          <p class="content-text">成功整合 6 通道 sEMG 與 5 指彎曲手套，證明多模態互補能有效對抗單一模態中風患者的病理肌電噪聲。</p>
+        </div>
+        <div class="m-card slate">
+          <div class="card-title"><span class="icon-indicator"></span>2. 臨床數據實證突破</div>
+          <p class="content-text">在 15 位醫院現場受試者、900 組真實試驗中，跨主流機器學習模型取得突破 90% 的強健分類精準度。</p>
+        </div>
+        <div class="m-card sage">
+          <div class="card-title"><span class="icon-indicator"></span>3. 義肢與復健人機融合</div>
+          <p class="content-text">本論文的多模態融合框架為智慧外骨骼手套（主動輔助抓握）與意圖解碼提供了最完美的軟硬體範式！</p>
+        </div>
+      </div>
+      <div class="m-card" style="margin-top:22px; background:var(--accent-terracotta-light); border:1px solid rgba(168, 87, 81, 0.35);">
+        <p class="content-text" style="margin-bottom:0; font-weight:700; color:var(--accent-terracotta); text-align:center; font-size:1.15rem;">
+          ★ 「將神經中樞的前饋意圖 (sEMG) 與末端肢體的運動軌跡 (Motion) 深度融合，是突破臨床病理干擾、實現真正客觀智慧復健的必由之路。」
+        </p>
+      </div>
+    </section>
+
+  </main>
+<footer class="slide-footer">
+    <div class="footer-hints">
+      <span>鍵盤快捷鍵：<span class="kbd-shortcut">←</span> <span class="kbd-shortcut">→</span> 切頁</span>
+      <span>筆記：<span class="kbd-shortcut">N</span></span>
+      <span>全螢幕：<span class="kbd-shortcut">F</span></span>
+    </div>
+    <div class="footer-controls">
+      <!-- 回到論文首頁按鈕 (房子圖示) -->
+      <button class="icon-ctrl-btn" onclick="goToSlide(0)" title="返回第一頁">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      </button>
+      <!-- 上一頁按鈕 (左箭頭) -->
+      <button class="icon-ctrl-btn" onclick="prevSlide()" title="上一頁 (←)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <!-- 頁碼標籤 -->
+      <div class="slide-page-badge" id="slide-indicator">01 / 08</div>
+      <!-- 下一頁按鈕 (右箭頭) -->
+      <button class="icon-ctrl-btn" onclick="nextSlide()" title="下一頁 (→)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+  </footer>
+
+  <!-- 深度研讀筆記抽屜 (Study Notes Drawer) -->
+  <div id="notes-drawer">
+    <div class="notes-header">
+      <div class="notes-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <span>深度研讀筆記與複習手冊</span>
+      </div>
+      <button class="notes-close-btn" onclick="toggleNotes()" title="關閉筆記 (Esc)">✕</button>
+    </div>
+    <div class="notes-body" id="notes-content">
+      <!-- 內容由 JavaScript 動態載入當前頁的深度複習資料 -->
+    </div>
+  </div>
+
+  <!-- JavaScript 投影片控制器 -->
+    <script>
+    const slideNotes = [
+  {
+    "wiki": "wiki/papers/yang2026_gesture_classification_semg_motion.md",
+    "title": "Slide 1 深度研讀筆記：論文背景、文獻定位與跨國合作團隊全景",
+    "sections": [
+      {
+        "heading": "📖 論文核心摘要與文獻定位",
+        "content": "<p><strong>論文名稱：</strong>Assisting hand gesture classification and rehabilitation assessment via sEMG and finger motion data<br><strong>發表期刊：</strong><em>Frontiers in Bioengineering and Biotechnology</em>, 2026, 13:1533036. (生醫工程領域知名開放獲取期刊，中科院一區/JCR Q1)。<br><strong>作者團隊：</strong>Xiuxiu Yang, Lingfeng Zhang, Fukui Wu, Xinran Wei, Haifeng Huang, Jun Li, Tao Hu，來自湖北民族大學智慧科學與工程學院、富硒食品營養健康智慧技術湖北省工程研究中心，以及東京大學工學系研究科電氣工程專攻。<br><strong>研究定位：</strong>針對中風、脊髓損傷及神經退化性疾患導致的手部運動功能障礙，打破目前依賴主觀量表評估的臨床困局，研發了一套穿戴式多模態（6 通道 sEMG + 手指彎曲傳感手套）手勢辨識與復健量化評估系統，並於醫院實地採集 15 位受試者（含中風患者）共 900 組數據驗證有效性。</p>"
+      },
+      {
+        "heading": "🔬 多模態融合之生醫工程機理",
+        "content": "<ul><li><strong>神經前饋電位 (Neural Feedforward):</strong> 表面肌電訊號 (sEMG) 源自脊髓前角運動神經元向肌肉發出的動作電位，提前於肢體物理運動約 50–100 ms 產生，代表大腦的發力意圖。</li><li><strong>物理運動學反饋 (Kinematic Feedback):</strong> 手指彎曲角度代表肢體運動的終端物理表現。將前饋電位與後饋角度在特徵層面深度融合，可有效避免中風患者肌電微弱或肌肉萎縮引起的假陰性誤判。</li></ul>"
+      },
+      {
+        "heading": "💡 與前臂肌電解碼主題的密切關聯",
+        "content": "<p>本篇論文將前臂肌電從單純的「義肢控制指令」延伸至「中風病患運動功能客觀量化評估」。它所覆蓋的肌肉正是控制手指精細開闔的核心肌群（FPL、FDS、FDP），為整套知識庫補齊了智慧神經復健的臨床應用拼圖。</p>"
+      }
+    ]
+  },
+  {
+    "wiki": "wiki/papers/yang2026_gesture_classification_semg_motion.md",
+    "title": "Slide 2 深度研讀筆記：中風後運動功能障礙與傳統臨床量表盲區",
+    "sections": [
+      {
+        "heading": "📖 中風後手部精細運動損傷病理",
+        "content": "<p>腦卒中（中風）引發對側大腦皮質脊髓束 (Corticospinal Tract) 中斷，導致上肢運動控制功能受損：<br>1. <strong>肌力低下與運動單元募集不足：</strong>病患無法隨意招募高閾值快肌運動單元，肌肉收縮力量微弱；<br>2. <strong>異常協同運動 (Synergistic Patterns)：</strong>屈肌張力過高引發指關節自發屈曲痙攣，病患難以單獨伸展個別手指；<br>3. <strong>主動感覺回饋受損：</strong>本體感受減退，病患無法精確控制抓握力量，極易導致物品滑落或捏碎。</p>"
+      },
+      {
+        "heading": "🔬 臨床傳統評估量表的核心缺陷",
+        "content": "<p>目前醫院復健科評估患者主要依賴 Fugl-Meyer 評估量表 (FMA)、Wolf 運動功能測試 (WMFT) 或動作研究臂測試 (ARAT)：<br>• <strong>粗粒度離散評分：</strong>例如 FMA 每項評分僅有 0 分（完全無法執行）、1 分（部分執行）、2 分（完全執行），無法精確反映患者神經恢復過程中的微小漸進改變；<br>• <strong>高度主觀性：</strong>不同物理治療師因經驗差異，評分評估者間信度 (Inter-rater reliability) 存在波動；<br>• <strong>無法居家遠程監測：</strong>病患必須頻繁到醫院掛號評估，導致出院後復健追蹤鏈條斷裂。</p>"
+      },
+      {
+        "heading": "💡 解決方案：穿戴式定量感測",
+        "content": "<p>本研究的終極目標是建立一套低成本、可穿戴、能在病患居家自我訓練時即時打分的智慧系統，實現「客觀量化、連續追蹤、遠程互動」。</p>"
+      }
+    ]
+  },
+  {
+    "wiki": "wiki/papers/yang2026_gesture_classification_semg_motion.md",
+    "title": "Slide 3 深度研讀筆記：6 通道 sEMG 佈局與柔性運動捕獲手套設計",
+    "sections": [
+      {
+        "heading": "📖 3 大前臂屈肌群解剖定位與雙極電極配置",
+        "content": "<p>系統在前臂優勢側精準選取 3 塊支配手指的核心肌群，每塊肌肉配置 2 個雙極表面肌電通道（共 6 通道）：<br>1. <strong>FPL (屈拇長肌, 通道 1 & 2)：</strong>位於前臂橈側深層，起於橈骨前表面，止於拇指遠節指骨底，專一支配拇指指間關節屈曲，對解碼拇指對掌與捏取至關重要；<br>2. <strong>FDS (橈側屈指淺肌, 通道 3 & 4)：</strong>位於前臂掌側中間層，支配第 2–5 指近端指間關節屈曲，反映手掌大面積包覆抓握意圖；<br>3. <strong>FDP (屈指深肌, 通道 5 & 6)：</strong>位於前臂深層，支配第 2–5 指遠端指間關節屈曲，提供指尖精細壓力的神經放電信號。</p>"
+      },
+      {
+        "heading": "🔬 柔性彎曲感測手套技術規格",
+        "content": "<p>手套整合 5 根超薄柔性壓阻式彎曲感測器，固定於 5 根手指的背側中軸線：<br>• <strong>物理原理：</strong>當指關節彎曲時，感測器內部導電微粒間距拉開，電阻值隨彎曲曲率半徑呈現線性變化；<br>• <strong>多軸量測：</strong>同步採集拇指、食指、中指、無名指與小指掌指關節 (MCP) 與指間關節 (PIP) 的即時彎曲角度；<br>• <strong>人體工學：</strong>手套採用高彈性透氣萊卡布料，避免阻礙重度中風患者本已受限的手指活動。</p>"
+      },
+      {
+        "heading": "💡 多模態互補價值",
+        "content": "<p>當重度患者因肌萎縮僅能產生微弱肌電時，手套能檢測微小被動位移；而當患者因攣縮產生高肌電但手指動彈不得時，肌電能證實大腦運動意圖，兩者相輔相成！</p>"
+      }
+    ]
+  },
+  {
+    "wiki": "wiki/papers/yang2026_gesture_classification_semg_motion.md",
+    "title": "Slide 4 深度研讀筆記：恩施醫院現場採集、受試者條件與 6 類手勢資料庫",
+    "sections": [
+      {
+        "heading": "📖 15 位臨床受試者特徵與現場採集環境",
+        "content": "<p>本研究於湖北恩施醫院復健醫學科進行現場採集：<br>• <strong>受試者群體：</strong>共 15 位受試者，包含臨床確診之腦卒中偏癱住院患者（涵蓋不同 Brunnstrom 恢復分期）與年齡匹配之健康對照受試者；<br>• <strong>倫理與知情同意：</strong>研究獲得醫院倫理委員會審查批准，所有患者或家屬均簽署知情同意書；<br>• <strong>採集環境：</strong>患者採坐姿或半臥位，患側前臂自然平放於床邊支撐桌面，最大程度消除肩胛帶與上臂代償發力引起的運動偽影。</p>"
+      },
+      {
+        "heading": "🔬 6 種復健預定義手勢 (Gestures 0–5)",
+        "content": "<p>設計了涵蓋日常生活活動 (ADL) 最核心的 6 類手勢動作：<br>• <strong>手勢 0 (Fist)：</strong>全指屈曲握拳，考驗 FDS 與 FDP 協同發力；<br>• <strong>手勢 1 (Open Hand)：</strong>全手伸展放鬆，考驗屈肌張力抑制；<br>• <strong>手勢 2 (Pinch)：</strong>拇指與食指指尖對捏，考驗 FPL 與食指深淺屈肌精細協調；<br>• <strong>手勢 3 (Point)：</strong>食指單獨伸展指物、其餘手指屈曲，考驗個別手指獨立伸展能力；<br>• <strong>手勢 4 (Thumb-up)：</strong>豎起大拇指比讚，考驗拇指伸展與掌指分離；<br>• <strong>手勢 5 (OK / Custom Grip)：</strong>拇指與食指扣環、其餘三指伸展。<br>每位受試者重複執行 10 次，構建出 <strong>900 組量化臨床時序數據集</strong>。</p>"
+      },
+      {
+        "heading": "💡 示範與引導協議",
+        "content": "<p>受試者在採集前觀看標準化 3D 動作教學影片。對於認知或運動障礙嚴重的患者，治療師在床邊給予口語指令提示與心理鼓勵，確保動作意圖的純粹性。</p>"
+      }
+    ]
+  },
+  {
+    "wiki": "wiki/papers/yang2026_gesture_classification_semg_motion.md",
+    "title": "Slide 5 深度研讀筆記：Savitzky–Golay 濾波與 STFT 時頻譜轉換原理",
+    "sections": [
+      {
+        "heading": "📖 Savitzky–Golay (SG) 濾波去噪數學機理",
+        "content": "<p>肌電訊號與彎曲感測器訊號極易受到 50 Hz 工頻干擾、肢體微顫與放大器熱雜訊影響：<br>• <strong>傳統濾波缺點：</strong>移動平均濾波會平滑掉動作觸發瞬間的陡峭前緣；低通濾波會產生顯著相位延遲；<br>• <strong>SG 濾波優勢：</strong>以滑動窗口內的最小平方法進行局部低階多項式擬合：<br>$$Y_j = \\sum_{i=-m}^{m} C_i \\cdot X_{j+i}$$<br>其本質是卷積運算，能夠在徹底濾除高頻抖動的同時，<strong>完美保留訊號的波形峰值高度、寬度與時序轉折點幾何特徵</strong>！</p>"
+      },
+      {
+        "heading": "🔬 短時傅立葉變換 (STFT) 提取 2D 時頻譜圖",
+        "content": "<p>由於手勢動作肌電具有強烈的時變非平穩性，全域 FFT 會完全抹殺時間維度資訊：<br>• 採用加漢明窗 (Hamming Window) 的 STFT，滑動步長設為特定時間片，計算局部功率譜密度；<br>• 輸出維度為 [時間 × 頻率] 的二維時頻譜圖 (Spectrogram)，直觀可視化運動單元放電在不同頻帶（20–150 Hz 肌肉活化主頻帶）隨動作進程的動態遷移；<br>• 將 6 通道肌電時頻圖特徵矩陣展平，與 5 維手指曲率時序向量串聯，構建高維多模態特徵輸入向量。</p>"
+      },
+      {
+        "heading": "💡 演算法亮點總結",
+        "content": "<p>SG 濾波負責運動學軌跡的高保真平滑，STFT 負責微觀肌電時頻結構的深度解析，兩者構成端到端穩健的訊號處理鏈條。</p>"
+      }
+    ]
+  },
+  {
+    "wiki": "wiki/papers/yang2026_gesture_classification_semg_motion.md",
+    "title": "Slide 6 深度研讀筆記：機器學習模型評估、精確度分析與混淆矩陣",
+    "sections": [
+      {
+        "heading": "📖 跨模型分類表現對比",
+        "content": "<p>研究對比了三種主流機器學習分類架構在 900 組臨床數據集上的分類性能：<br>1. <strong>SVM (支援向量機, RBF 核心)：</strong>5 折交叉驗證精準度 <strong>91.4%</strong>，獨立測試集 <strong>90.8%</strong>。利用最大間隔超平面，在小樣本與高維特徵下具備頂級泛化強健性；<br>2. <strong>LightGBM (輕量梯度提升機)：</strong>交叉驗證精準度 <strong>93.2%</strong>，獨立測試集 <strong>92.5%</strong>。基於直方圖最佳化與葉子生長策略，運算速度極快、記憶體消耗極低，綜合表現最佳；<br>3. <strong>MLP (多層感知機類神經網路)：</strong>交叉驗證精準度 <strong>92.1%</strong>，獨立測試集 <strong>91.2%</strong>。深度捕捉肌電與曲率間的高度非線性交叉關聯。</p>"
+      },
+      {
+        "heading": "🔬 混淆矩陣與各手勢辨識率分析",
+        "content": "<p>• <strong>握拳 (Fist) 與張手 (Open)：</strong>辨識精準度最高，超過 96%，因兩者在肌電振幅與曲率兩極分化極為明顯；<br>• <strong>二指捏 (Pinch) 與單指指點 (Point)：</strong>精準度約 88%~90%，兩者混淆主要發生在中風重度攣縮患者中，患者因屈指淺肌過度痙攣，指點時食指無法完全伸展；<br>• <strong>整體穩定度：</strong>全模型在測試集均穩定突破 90% 精準度門檻，證明系統具備極佳的跨個體適應性。</p>"
+      },
+      {
+        "heading": "💡 嵌入式邊緣部署可行性",
+        "content": "<p>LightGBM 模型大小僅數百 KB，在嵌入式微控制器 (如 ARM Cortex-M7) 上單次推論時間小於 10 ms，完全符合義肢與穿戴裝置 300 ms 的即時控制要求。</p>"
+      }
+    ]
+  },
+  {
+    "wiki": "wiki/papers/yang2026_gesture_classification_semg_motion.md",
+    "title": "Slide 7 深度研讀筆記：客觀量化復健評估、特徵流形與功能對齊",
+    "sections": [
+      {
+        "heading": "📖 特徵空間流形與神經康復分級",
+        "content": "<p>作者深入探討了多模態特徵在 t-SNE 降維空間中的幾何結構：<br>• <strong>高功能患者 (Brunnstrom IV–VI 期)：</strong>6 種手勢的特徵向量聚類緊湊，類別邊界清晰，反映其皮質脊髓束已重新建立分立的神經肌肉支配通路；<br>• <strong>低功能患者 (Brunnstrom II–III 期)：</strong>不同手勢的特徵點出現重疊與粘連，直觀展現了「異常共同運動 (Abnormal Synergies)」的病理特徵；<br>• <strong>臨床意義：</strong>分類器輸出的後驗機率或幾何距離，可直接轉化為患者運動協調能力的<strong>「連續客觀評分值」</strong>，彌補了 FMA 量表離散跳躍的不足！</p>"
+      },
+      {
+        "heading": "🔬 智慧遠程復健系統架構",
+        "content": "<p>系統可無縫整合至遠端醫療雲平台：<br>1. 病患居家配戴手套，跟隨互動遊戲（如抓取水果、彈奏鋼琴）進行自主訓練；<br>2. 演算法在背景即時評估動作完成度與疲勞指數，動態調整遊戲難度；<br>3. 治療師可每週遠端查閱動作演化趨勢圖，精準調整復健方案，大幅降低住院康復成本。</p>"
+      },
+      {
+        "heading": "💡 審查提問擬答",
+        "content": "<p><strong>Q: 為什麼多模態融合對神經復健特別重要？</strong><br>A: 因為單純的運動學只測結果，不能分辨是否為被動牽拉；單純的肌電只測意圖，易受痙攣偽影干擾。意圖與結果的同步對比，才能讓醫師一眼看清神經傳導與外周執行的脫節程度。</p>"
+      }
+    ]
+  },
+  {
+    "wiki": "wiki/papers/yang2026_gesture_classification_semg_motion.md",
+    "title": "Slide 8 深度研讀筆記：研究總結、技術限制與未來發展路線",
+    "sections": [
+      {
+        "heading": "📖 本研究三大關鍵成果梳理",
+        "content": "<p>1. 研發了輕量可穿戴的 6 通道 sEMG 結合柔性彎曲感測手套之多模態硬體系統；<br>2. 在恩施醫院實地採集 15 位受試者（含中風住院患者）共 900 組臨床動作數據；<br>3. 融合 SG 濾波與 STFT 時頻特徵，主流機器學習模型（LightGBM 92.5%、SVM 90.8%）跨越 90% 精準度門檻，並成功建立了客觀量化復健評估框架。</p>"
+      },
+      {
+        "heading": "🔬 系統限制與工程演進路線",
+        "content": "<p>• <strong>穿脫便利性改進：</strong>目前手套仍需治療師或家屬協助穿脫，未來應研發半開放式磁吸拉鍊骨架，方便嚴重握拳痙攣患者單手自主穿戴；<br>• <strong>樣本量與長期跟蹤：</strong>目前受試者為 15 人，後續需開展跨數月的多中心臨床隊列研究，追蹤神經塑性重塑的長期肌電軌跡；<br>• <strong>閉環輔助結合：</strong>下一步將多模態解碼演算法與氣動人工肌肉 (PAM) 外骨骼整合，一旦解碼到病患張手意圖，外骨骼即時提供輔助動力助其張手，實現感覺-運動閉環促進！</p>"
+      },
+      {
+        "heading": "💡 總結演講結語",
+        "content": "<p>「將神經中樞的前饋意圖 (sEMG) 與末端肢體的運動軌跡 (Motion) 深度融合，是突破臨床病理干擾、實現真正客觀智慧復健的必由之路。」感謝各位老師！</p>"
+      }
+    ]
+  }
+];
+let currentSlide = 0;
+    const totalSlides = 8;
+    let notesOpen = false;
+    let tocOpen = false;
+
+    function updateSlide() {
+      // 切換投影片顯示
+      document.querySelectorAll('.slide-page').forEach((slide, idx) => {
+        if (idx === currentSlide) {
+          slide.classList.add('active');
+        } else {
+          slide.classList.remove('active');
+        }
+      });
+
+      // 更新進度條與頁碼
+      const progressPercent = ((currentSlide + 1) / totalSlides) * 100;
+      document.getElementById('progress-bar').style.width = progressPercent + '%';
+      document.getElementById('slide-indicator').textContent = 
+        String(currentSlide + 1).padStart(2, '0') + ' / ' + String(totalSlides).padStart(2, '0');
+
+      // 更新 TOC 清單的高亮狀態
+      document.querySelectorAll('.toc-item').forEach((item, idx) => {
+        if (idx === currentSlide) {
+          item.classList.add('active');
+        } else {
+          item.classList.remove('active');
+        }
+      });
+
+      // 更新研讀筆記內容（三段結構化深入手冊）
+      const note = slideNotes[currentSlide];
+      const notesContainer = document.getElementById('notes-content');
+      let sectionsHtml = '';
+      note.sections.forEach(sec => {
+        sectionsHtml += `
+          <div class="notes-card-section">
+            <h4>${sec.heading}</h4>
+            <div>${sec.content}</div>
+          </div>
+        `;
+      });
+
+      notesContainer.innerHTML = `
+        <span class="wiki-tag">Wiki 溯源節點：${note.wiki}</span>
+        <h3 style="color:#FFF; font-size:1.15rem; margin-bottom:12px;">${note.title}</h3>
+        ${sectionsHtml}
+      `;
+
+      // 觸發 KaTeX 渲染
+      if (window.renderMathInElement) {
+        renderMathInElement(document.getElementById('slide-viewport'), {
+          delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]
+        });
+        renderMathInElement(notesContainer, {
+          delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]
+        });
+      }
+    }
+
+    function nextSlide() {
+      if (currentSlide < totalSlides - 1) {
+        currentSlide++;
+        updateSlide();
+      }
+    }
+
+    function prevSlide() {
+      if (currentSlide > 0) {
+        currentSlide--;
+        updateSlide();
+      }
+    }
+
+    function goToSlide(idx) {
+      if (idx >= 0 && idx < totalSlides) {
+        currentSlide = idx;
+        updateSlide();
+        if (tocOpen) toggleToc();
+      }
+    }
+
+    // 筆記抽屜開關 - 徹底隱藏與展開
+    function toggleNotes() {
+      notesOpen = !notesOpen;
+      const drawer = document.getElementById('notes-drawer');
+      const btn = document.getElementById('btn-notes');
+      if (notesOpen) {
+        drawer.classList.add('open');
+        btn.classList.add('active');
+      } else {
+        drawer.classList.remove('open');
+        btn.classList.remove('active');
+      }
+    }
+
+    // 章節導覽 Modal 開關
+    function toggleToc() {
+      tocOpen = !tocOpen;
+      const modal = document.getElementById('toc-modal');
+      const btn = document.getElementById('btn-toc');
+      if (tocOpen) {
+        modal.classList.add('open');
+        btn.classList.add('active');
+      } else {
+        modal.classList.remove('open');
+        btn.classList.remove('active');
+      }
+    }
+
+    // 全螢幕切換
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+          console.warn(`Error attempting to enable full-screen mode: ${err.message}`);
+        });
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+
+    // 鍵盤導航監聽
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+        e.preventDefault();
+        nextSlide();
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        e.preventDefault();
+        prevSlide();
+      } else if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        toggleNotes();
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        toggleFullscreen();
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        goToSlide(0);
+      } else if (e.key === 'Escape') {
+        if (tocOpen) toggleToc();
+        if (notesOpen) toggleNotes();
+      }
+    });
+
+    // 初始化載入
+    window.addEventListener('DOMContentLoaded', () => {
+      updateSlide();
+    });
+  </script>
+</body>
+</html>
